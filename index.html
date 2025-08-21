@@ -388,6 +388,22 @@
         .pattern-item { padding: 4px 8px; border-radius: 5px; font-size: 1em; font-weight: 600; }
         .pattern-arrow { font-size: 1.5em; color: #ffd700; margin: 0 5px; }
         .analysis-placeholder { text-align: center; padding: 40px; color: #888; }
+        .analysis-stats {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .analysis-stats .stat-item { text-align: center; }
+        .analysis-stats .stat-label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; }
+        .analysis-stats .stat-value { font-size: 1.2em; font-weight: bold; }
+        .analysis-stats .stat-value .correct { color: #2ecc71; }
+        .analysis-stats .stat-value .incorrect { color: #e74c3c; }
 
 
         .algorithm-142857 { background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(142, 68, 173, 0.1)); border-radius: 20px; padding: 25px; margin-bottom: 25px; border: 2px solid #9b59b6; position: relative; overflow: hidden; }
@@ -468,6 +484,7 @@
         <div class="cross-session-analysis">
             <h2 class="section-title">🔮 Phân Tích Hình Cầu & Đề Xuất Bẻ/Theo</h2>
             <div id="crossSessionResults"><div class="analysis-placeholder"><p>Đang chờ đủ dữ liệu để phân tích...</p></div></div>
+            <div id="crossSessionStats" class="analysis-stats"><p style="color: #888; width: 100%; text-align: center;">Chưa có thống kê đề xuất.</p></div>
         </div>
 
         <div class="input-section">
@@ -551,6 +568,31 @@
         class MagicNumber142857{constructor(){this.base=142857,this.sequence=[1,4,2,8,5,7],this.phase=0,this.cycle=0,this.predictions=[],this.results=[]}getNextPhase(){return this.phase=(this.phase+1)%6,0===this.phase&&this.cycle++,this.sequence[this.phase]}calculatePrediction(t){if(t.length<3)return null;const e=this.sequence[this.phase],i=(e*this.base)%1e6,s=i.toString().padStart(6,"0").split("").map(Number),n=s.reduce((t,e)=>t+e,0);if(0===n)return{P:33.3,B:33.3,T:1};const r=(s[0]+s[2]+s[4])/n,c=(s[1]+s[3]+s[5])/n,o=this.analyzeRecentTrend(t);return{P:70*r+30*o.P,B:70*c+30*o.B,T:Math.max(5,100*Math.abs(1-r-c)),phase:e,cycle:this.cycle}}analyzeRecentTrend(t){const e=t.slice(-7),i={P:0,B:0,T:0};e.forEach(t=>i[t]++);const s=e.length||1;return{P:i.P/s*100,B:i.B/s*100,T:i.T/s*100}}updateAccuracy(t,e){t&&(this.predictions.push(t),this.results.push(e),this.predictions.length>100&&(this.predictions.shift(),this.results.shift()))}getAccuracy(){if(0===this.predictions.length)return 0;let t=0;return this.predictions.forEach((e,i)=>{const s=this.results[i],n=Math.max(e.P,e.B,e.T);n===e.P&&"P"===s||n===e.B&&"B"===s||n===e.T&&"T"===s?t++:t}),t/this.predictions.length*100}}
         class PatternRecognitionSystem{constructor(){this.patterns={Dragon:{check:t=>this.checkDragon(t),danger:!1,description:"Chuỗi dài cùng kết quả (5+)"},"Baby Dragon":{check:t=>this.checkBabyDragon(t),danger:!1,description:"Chuỗi ngắn (3-4)"},"Ping Pong":{check:t=>this.checkPingPong(t),danger:!1,description:"Xen kẽ P-B-P-B"},Choppy:{check:t=>this.checkChoppy(t),danger:!0,description:"Thay đổi liên tục, khó đoán"},Trend:{check:t=>this.checkTrend(t),danger:!1,description:"Xu hướng rõ ràng P hoặc B"},"Anti-Trend":{check:t=>this.checkAntiTrend(t),danger:!0,description:"Đảo chiều xu hướng"},ZigZag:{check:t=>this.checkZigZag(t),danger:!1,description:"Mẫu 2-1-2-1"},Streaky:{check:t=>this.checkStreaky(t),danger:!1,description:"Nhiều chuỗi ngắn"},TTT:{check:t=>this.checkTripleTie(t),danger:!0,description:"3 Tie liên tiếp"},Sandwich:{check:t=>this.checkSandwich(t),danger:!1,description:"P-B-P hoặc B-P-B"},"Double Dragon":{check:t=>this.checkDoubleDragon(t),danger:!1,description:"2 chuỗi dài liên tiếp"},Mirror:{check:t=>this.checkMirror(t),danger:!1,description:"Mẫu đối xứng"},"Repeating Streaks":{check:t=>this.checkRepeatingStreaks(t),danger:!1,description:"Chuỗi độ dài lặp lại (vd: 2,1,2,1)"},"Symmetrical Streaks":{check:t=>this.checkSymmetricalStreaks(t),danger:!1,description:"Chuỗi độ dài đối xứng (vd: 1,2,3,2,1)"},"Complex Alternation":{check:t=>this.checkComplexAlternation(t),danger:!1,description:"Xen kẽ phức tạp (vd: PPB-PPB)"}}}getStreakInfo(t){const e=t.filter(t=>"T"!==t);if(0===e.length)return[];const i=[];let s={type:e[0],length:0};return e.forEach(t=>{t===s.type?s.length++:(i.push(s),s={type:t,length:1})}),i.push(s),i}checkRepeatingStreaks(t){const e=this.getStreakInfo(t);if(e.length<4)return{detected:!1};const i=e.map(t=>t.length);if(e.length>=4){const s=i.slice(-4);if(s[0]===s[2]&&s[1]===s[3])return{detected:!0,confidence:.75,next:e[e.length-2].type,description:`Lặp lại chuỗi ${s[0]}-${s[1]}`}}if(e.length>=6){const s=i.slice(-6);if(s[0]===s[3]&&s[1]===s[4]&&s[2]===s[5])return{detected:!0,confidence:.85,next:e[e.length-3].type,description:`Lặp lại chuỗi ${s[0]}-${s[1]}-${s[2]}`}}return{detected:!1}}checkSymmetricalStreaks(t){const e=this.getStreakInfo(t);if(e.length<5)return{detected:!1};const i=e.map(t=>t.length).slice(-5);if(i[0]===i[4]&&i[1]===i[3]){const t="P"===e[e.length-1].type?"B":"P";return{detected:!0,confidence:.7,next:t,description:`Đối xứng 5 chuỗi: ${i.join(",")}`}}return{detected:!1}}checkComplexAlternation(t){const e=t.filter(t=>"T"!==t);if(e.length<6)return{detected:!1};const i=e.slice(-6),s=i.slice(0,3).join(""),n=i.slice(3,6).join("");return s===n?{detected:!0,confidence:.8,next:i[0],description:`Lặp lại mẫu 3: ${s}`}:{detected:!1}}checkDragon(t){if(t.length<5)return{detected:!1};const e=t.slice(-5),i=e.every(t=>t===e[0]&&"T"!==t);return{detected:i,confidence:i?.9:0,next:i?e[0]:null}}checkBabyDragon(t){if(t.length<3)return{detected:!1};const e=t.slice(-4),i=t.slice(-3),s=i.every(t=>t===i[0]&&"T"!==t),n=4===e.length&&e.every(t=>t===e[0]&&"T"!==t);return{detected:s||n,confidence:n?.8:s?.7:0,next:s?i[0]:n?e[0]:null}}checkPingPong(t){if(t.length<4)return{detected:!1};const e=t.slice(-4),i="T",s=e[0]!==e[1]&&e[1]!==e[2]&&e[2]!==e[3]&&e[0]===e[2]&&e[1]===e[3]&&!e.includes(i);return{detected:s,confidence:s?.75:0,next:s?e[0]:null}}checkChoppy(t){if(t.length<10)return{detected:!1};const e=t.slice(-10);let i=0;for(let s=1;s<e.length;s++)e[s]!==e[s-1]&&i++;const s=i>=7;return{detected:s,confidence:s?.6:0,next:null}}checkTrend(t){if(t.length<10)return{detected:!1};const e=t.slice(-10).filter(t=>"T"!==t),i=e.filter(t=>"P"===t).length,s=e.filter(t=>"B"===t).length,n=i>=7||s>=7;return{detected:n,confidence:n?.8:0,next:i>=7?"P":s>=7?"B":null}}checkAntiTrend(t){if(t.length<15)return{detected:!1};const e=t.slice(-15,-8).filter(t=>"T"!==t),i=t.slice(-7).filter(t=>"T"!==t),s=e.filter(t=>"P"===t).length,n=i.filter(t=>"P"===t).length,r=s>=5&&n<=2||s<=2&&n>=5;return{detected:r,confidence:r?.7:0,next:null}}checkZigZag(t){if(t.length<6)return{detected:!1};const e=t.slice(-6).filter(t=>"T"!==t),i=[];let s=e[0],n=1;for(let r=1;r<e.length;r++)e[r]===s?n++:(i.push(n),s=e[r],n=1);i.push(n);const r=i.length>=3&&i.every(t=>1===t||2===t);return{detected:r,confidence:r?.65:0,next:null}}checkStreaky(t){if(t.length<12)return{detected:!1};const e=t.slice(-12);let i=0,s=1;for(let n=1;n<e.length;n++)e[n]===e[n-1]&&"T"!==e[n]?s++:(s>=2&&i++,s=1);s>=2&&i++;const n=i>=3;return{detected:n,confidence:n?.7:0,next:n?e[e.length-1]:null}}checkTripleTie(t){if(t.length<3)return{detected:!1};const e=t.slice(-3).every(t=>"T"===t);return{detected:e,confidence:e?.9:0,next:null}}checkSandwich(t){if(t.length<3)return{detected:!1};const e=t.slice(-3),i="T",s=e[0]===e[2]&&e[0]!==e[1]&&!e.includes(i);return{detected:s,confidence:s?.6:0,next:s?e[1]:null}}checkDoubleDragon(t){if(t.length<10)return{detected:!1};let e=null,i=0;let s=t[t.length-10],n=1;for(let r=t.length-9;r<t.length;r++)t[r]===s&&"T"!==t[r]?n++:(n>=4&&!e?(e=s,i=n):n>=4&&e&&s!==e&&{detected:!0,confidence:.85,next:t[t.length-1]},s=t[r],n=1);return{detected:!1}}checkMirror(t){if(t.length<6)return{detected:!1};const e=t.slice(-6),i=e.slice(0,3).join(""),s=e.slice(3,6).reverse().join(""),n=i===s;return{detected:n,confidence:n?.7:0,next:n?e[2]:null}}analyzePatterns(t){const e=[],i=[];for(let s in this.patterns){const n=this.patterns[s],r=n.check(t);r.detected&&(e.push({name:s,confidence:r.confidence,next:r.next,danger:n.danger,description:n.description}),n.danger&&i.push({name:s,description:n.description}))}return{detected:e,warnings:i}}}
         
+        class CrossSessionPredictionTracker {
+            constructor() { this.reset(); }
+            record(recommendation, wasCorrect) {
+                if (recommendation === 'BREAK' || recommendation === 'FOLLOW') {
+                    this.history.push({ recommendation, correct: wasCorrect });
+                }
+            }
+            getStats() {
+                const breakRecs = this.history.filter(h => h.recommendation === 'BREAK');
+                const followRecs = this.history.filter(h => h.recommendation === 'FOLLOW');
+                const correctBreaks = breakRecs.filter(h => h.correct).length;
+                const correctFollows = followRecs.filter(h => h.correct).length;
+                return {
+                    total: this.history.length,
+                    breakTotal: breakRecs.length,
+                    followTotal: followRecs.length,
+                    correctBreaks,
+                    correctFollows,
+                    breakAccuracy: breakRecs.length > 0 ? (correctBreaks / breakRecs.length) * 100 : 0,
+                    followAccuracy: followRecs.length > 0 ? (correctFollows / followRecs.length) * 100 : 0,
+                };
+            }
+            reset() { this.history = []; }
+        }
+
         // ===== NEW: CROSS-SESSION SHAPE ANALYZER =====
         class CrossSessionShapeAnalyzer {
             transformToStreakShape(history) {
@@ -662,7 +704,9 @@
                 this.streakPredictor = new StreakPredictor();
                 this.streakPredictionTracker = new StreakPredictionTracker();
                 this.crossSessionAnalyzer = new CrossSessionShapeAnalyzer();
+                this.crossSessionTracker = new CrossSessionPredictionTracker();
                 this.history = [];
+                this.lastCrossSessionRec = null;
             }
             addResult(result) {
                 this.accuracyTracker.recordActualResult(result);
@@ -673,6 +717,7 @@
             }
             analyze(allSessions, currentSessionIndex) {
                 const crossSessionAnalysis = this.crossSessionAnalyzer.analyze(allSessions, currentSessionIndex);
+                this.lastCrossSessionRec = crossSessionAnalysis.recommended;
                 
                 if (this.history.length < 3) {
                     const initial = { prediction: { P: 33.3, B: 33.3, T: 33.3 }, patterns: { detected: [], warnings: [] }, magic: null, streakPrediction: { recommendation: 'KHÔNG', reason: 'Cần thêm dữ liệu' }, crossSession: crossSessionAnalysis };
@@ -715,7 +760,7 @@
         let sessions = [[]];
         let currentSessionIndex = 0;
         let analyzer = new AdvancedBaccaratAnalyzer();
-        const BACCARAT_SESSIONS_KEY = 'baccaratSessions6868_v3'; // Updated key
+        const BACCARAT_SESSIONS_KEY = 'baccaratSessions6868_v4'; // Updated key for new structure
 
         function startNewSession() {
             if (sessions[currentSessionIndex].length > 0) {
@@ -734,9 +779,27 @@
             currentSessionIndex = index;
             const sessionData = sessions[currentSessionIndex] || [];
             analyzer = new AdvancedBaccaratAnalyzer();
+            
+            // Replay history to rebuild state
             sessionData.forEach(result => {
-                analyzer.addResult(result);
+                // We need to run analysis BEFORE adding the result to track accuracy correctly
+                const historyBefore = [...analyzer.history];
+                const lastRec = analyzer.lastCrossSessionRec;
+                
+                if (lastRec && (lastRec === 'BREAK' || lastRec === 'FOLLOW') && historyBefore.length > 0) {
+                    const cleanHistoryBefore = historyBefore.filter(r => r !== 'T');
+                    if(cleanHistoryBefore.length > 0) {
+                        const lastTypeBefore = cleanHistoryBefore[cleanHistoryBefore.length - 1];
+                        const actualOutcome = (result === lastTypeBefore) ? 'FOLLOW' : 'BREAK';
+                        const wasCorrect = (lastRec === actualOutcome);
+                        analyzer.crossSessionTracker.record(lastRec, wasCorrect);
+                    }
+                }
+                
+                analyzer.analyze(sessions, currentSessionIndex); // Run analysis to set next prediction
+                analyzer.addResult(result); // Add result and update internal state
             });
+
             updateAllDisplays();
             updateSessionSelector();
             saveSessionsToLocalStorage();
@@ -750,6 +813,20 @@
         }
         
         function addResult(result) {
+            const historyBefore = [...(sessions[currentSessionIndex] || [])];
+            const lastRec = analyzer.lastCrossSessionRec;
+
+            if (lastRec && (lastRec === 'BREAK' || lastRec === 'FOLLOW') && historyBefore.length > 0) {
+                const cleanHistoryBefore = historyBefore.filter(r => r !== 'T');
+                if(cleanHistoryBefore.length > 0) {
+                    const lastTypeBefore = cleanHistoryBefore[cleanHistoryBefore.length - 1];
+                    // Determine the actual outcome based on the new result
+                    const actualOutcome = (result === lastTypeBefore) ? 'FOLLOW' : 'BREAK';
+                    const wasCorrect = (lastRec === actualOutcome);
+                    analyzer.crossSessionTracker.record(lastRec, wasCorrect);
+                }
+            }
+
             analyzer.analyze(sessions, currentSessionIndex);
             sessions[currentSessionIndex].push(result);
             analyzer.addResult(result);
@@ -760,7 +837,7 @@
         function undoLast() {
             if (sessions[currentSessionIndex].length > 0) {
                 sessions[currentSessionIndex].pop();
-                loadSession(currentSessionIndex);
+                loadSession(currentSessionIndex); // Reload to rebuild state correctly
             }
         }
 
@@ -787,7 +864,8 @@
 
         function resetAccuracyStats() {
             analyzer.accuracyTracker.reset();
-            analyzer.streakPredictionTracker.history = [];
+            analyzer.streakPredictionTracker.reset();
+            analyzer.crossSessionTracker.reset();
             updateAccuracyStats();
         }
 
@@ -872,6 +950,7 @@
             updateMagicNumber(analysis.magic);
             updateStreakPrediction(analysis.streakPrediction);
             updateCrossSessionAnalysis(analysis.crossSession);
+            updateCrossSessionStats(analyzer.crossSessionTracker.getStats());
         }
         
         function updateCrossSessionAnalysis(analysis) {
@@ -926,6 +1005,24 @@
             `).join('');
 
             container.innerHTML = summaryHTML + `<div class="matched-sessions-list">${matchesHTML}</div>`;
+        }
+        
+        function updateCrossSessionStats(stats) {
+            const container = document.getElementById('crossSessionStats');
+            if (stats.total === 0) {
+                container.innerHTML = '<p style="color: #888; width: 100%; text-align: center;">Chưa có thống kê đề xuất.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-label">Đề Xuất Bẻ Cầu</div>
+                    <div class="stat-value"><span class="correct">${stats.correctBreaks}</span> / ${stats.breakTotal} (${stats.breakAccuracy.toFixed(1)}%)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Đề Xuất Theo Cầu</div>
+                    <div class="stat-value"><span class="correct">${stats.correctFollows}</span> / ${stats.followTotal} (${stats.followAccuracy.toFixed(1)}%)</div>
+                </div>
+            `;
         }
 
 
