@@ -78,10 +78,10 @@
                 <h2 class="text-xl font-semibold mb-4 text-blue-300">📁 Quản Lý Phiên</h2>
                 <div class="flex flex-col sm:flex-row gap-4 mb-4">
                     <select id="sessionSelector" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></select>
-                    <div class="flex gap-4">
-                        <button onclick="createNewSession()" class="btn w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg whitespace-nowrap">➕ Phiên Mới</button>
-                        <button onclick="renameCurrentSession()" class="btn w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg whitespace-nowrap">✏️ Đổi Tên</button>
-                        <button onclick="deleteSelectedSession()" class="btn w-full sm:w-auto bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg whitespace-nowrap">🗑️ Xóa Phiên</button>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <button onclick="createNewSession()" class="btn w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg">➕ Mới</button>
+                        <button onclick="renameSession()" class="btn w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">✏️ Đổi Tên</button>
+                        <button onclick="deleteSelectedSession()" class="btn w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg">🗑️ Xóa</button>
                     </div>
                 </div>
                  <!-- Import/Export -->
@@ -127,7 +127,7 @@
         <div class="space-y-6">
             <!-- Accuracy Stats -->
             <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
-                <h2 class="text-xl font-semibold mb-4 text-green-300">🎯 Thống Kê Độ Chính Xác</h2>
+                <h2 class="text-xl font-semibold mb-4 text-green-300">🎯 Thống Kê Độ Chính Xác (Phiên Hiện Tại)</h2>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center bg-gray-700 p-4 rounded-lg">
                         <span class="font-medium text-gray-300">Tỷ Lệ Thắng</span>
@@ -183,13 +183,18 @@
                 const occurrences = [];
                 if (pattern.length < this.MIN_PATTERN_LENGTH) return occurrences;
                 const reversedPattern = [...pattern].reverse();
-                for (const sessionHistory of allHistory) {
+
+                for (const session of allHistory) {
+                    const sessionHistory = session.history || [];
                     if (sessionHistory.length < pattern.length + 1) continue;
+                    
                     for (let i = 0; i <= sessionHistory.length - pattern.length - 1; i++) {
                         const segment = sessionHistory.slice(i, i + pattern.length);
                         const nextResult = sessionHistory[i + pattern.length];
                         const similarity = this.calculateSimilarity(pattern, segment);
+                        
                         if (similarity >= 0.9) occurrences.push({ type: 'similar', next: nextResult, similarity });
+                        
                         const reverseSimilarity = this.calculateSimilarity(reversedPattern, segment);
                         if (reverseSimilarity >= 0.9) occurrences.push({ type: 'reversed', next: nextResult, similarity: reverseSimilarity });
                     }
@@ -208,9 +213,9 @@
                     }
                     return { type: 'bệt', length, value: last };
                 } else {
-                     let length = 0;
-                     for (let i = currentHistory.length - 1; i >= 1; i--) {
-                         if (currentHistory[i] !== currentHistory[i-1]) length++; else break;
+                    let length = 0;
+                    for (let i = currentHistory.length - 1; i >= 1; i--) {
+                        if (currentHistory[i] !== currentHistory[i-1]) length++; else break;
                     }
                     return { type: '1-1', length: length + 1 };
                 }
@@ -220,30 +225,36 @@
                 if (currentHistory.length < this.MIN_HISTORY_FOR_ANALYSIS) {
                     return { prediction: null, analysisText: `Cần ít nhất ${this.MIN_HISTORY_FOR_ANALYSIS} kết quả...`, confidence: 0 };
                 }
+
                 const allMatches = [];
                 for (let len = Math.min(this.MAX_PATTERN_LENGTH, currentHistory.length); len >= this.MIN_PATTERN_LENGTH; len--) {
                     const pattern = currentHistory.slice(-len);
                     const occurrences = this.findPatternOccurrences(pattern, allHistoricalSessions);
                     if (occurrences.length > 0) {
                         allMatches.push(...occurrences);
-                        break;
+                        break; 
                     }
                 }
+
                 if (allMatches.length === 0) {
                     return { prediction: null, analysisText: 'Không tìm thấy hình cầu tương tự.', confidence: 0 };
                 }
+
                 const votes = { P: 0, B: 0 };
                 allMatches.forEach(match => {
                     if (votes[match.next] !== undefined) votes[match.next] += match.similarity;
                 });
+
                 const totalVotes = votes.P + votes.B;
                 if (totalVotes === 0) {
-                     return { prediction: null, analysisText: 'Không tìm thấy hình cầu tương tự.', confidence: 0 };
+                    return { prediction: null, analysisText: 'Không tìm thấy hình cầu tương tự.', confidence: 0 };
                 }
+
                 const confidenceP = (votes.P / totalVotes) * 100;
                 const confidenceB = (votes.B / totalVotes) * 100;
                 const maxConfidence = Math.max(confidenceP, confidenceB);
                 const predictedWinner = votes.P > votes.B ? 'P' : 'B';
+
                 const analysisTextPrefix = `Tìm thấy ${allMatches.length} hình cầu tương tự. Lịch sử cho thấy:\n- PLAYER: ${votes.P.toFixed(1)} điểm\n- BANKER: ${votes.B.toFixed(1)} điểm`;
                 
                 const streakInfo = this.analyzeCurrentStreak(currentHistory);
@@ -259,42 +270,30 @@
             }
         }
 
-        // --- ACCURACY TRACKER ---
-        // This class is now more of a stateless utility helper.
-        // The actual prediction data is stored per session.
-        class AccuracyTracker {
-            constructor() {
-                this.currentPrediction = null;
-            }
-            makePrediction(prediction, confidence) { 
-                this.currentPrediction = { prediction, confidence };
-            }
-            // The result is recorded in the session by addResult()
-            recordActualResult() {
-                this.currentPrediction = null;
-            }
-            getStats(predictions = []) {
-                const total = predictions.length;
-                if (total === 0) return { rate: 0, correct: 0, total: 0 };
-                const correct = predictions.filter(p => p.predicted === p.actual).length;
-                return { rate: (correct / total) * 100, correct, total };
-            }
-        }
-
         // --- GLOBAL STATE ---
         let state = {
             currentSessionId: null,
             sessions: {},
             matcher: new PatternMatcher(),
-            accuracyTracker: new AccuracyTracker(),
+            currentPrediction: null, // Holds the prediction for the NEXT game
             goldenRange: null 
         };
+        
+        // --- STATS CALCULATION ---
+        function getPredictionStats(predictions) {
+            const total = predictions.length;
+            if (total === 0) return { rate: 0, correct: 0, total: 0 };
+            const correct = predictions.filter(p => p.predicted === p.actual).length;
+            return { rate: (correct / total) * 100, correct, total };
+        }
+
 
         // --- UI UPDATE FUNCTIONS ---
         function updateBigRoadUI() {
             const history = state.sessions[state.currentSessionId]?.history || [];
             const roadDiv = document.getElementById('bigRoadDisplay');
             document.getElementById('totalGames').textContent = history.length;
+
             if (history.length === 0) {
                 roadDiv.innerHTML = '<p class="text-gray-500 p-4">Chưa có kết quả...</p>';
                 roadDiv.style.display = 'block';
@@ -302,18 +301,21 @@
             }
             roadDiv.style.display = 'grid';
             roadDiv.innerHTML = '';
+
             const columns = [];
             if (history.length > 0) {
                 let currentCol = [history[0]];
                 for (let i = 1; i < history.length; i++) {
-                    if (history[i] === history[i-1]) currentCol.push(history[i]);
-                    else {
+                    if (history[i] === history[i-1]) {
+                        currentCol.push(history[i]);
+                    } else {
                         columns.push(currentCol);
                         currentCol = [history[i]];
                     }
                 }
                 columns.push(currentCol);
             }
+
             columns.forEach(colData => {
                 const colDiv = document.createElement('div');
                 colDiv.className = 'road-col';
@@ -331,7 +333,7 @@
 
         function updateAccuracyUI() {
             const predictions = state.sessions[state.currentSessionId]?.predictions || [];
-            const stats = state.accuracyTracker.getStats(predictions);
+            const stats = getPredictionStats(predictions);
             document.getElementById('accuracyRate').textContent = `${stats.rate.toFixed(1)}%`;
             document.getElementById('correctPredictions').textContent = stats.correct;
             document.getElementById('totalPredictions').textContent = stats.total;
@@ -339,24 +341,24 @@
 
         function updateAnalysisUI() {
             const currentHistory = state.sessions[state.currentSessionId]?.history || [];
-            const allHistory = Object.values(state.sessions).map(s => s.history);
+            const allHistory = Object.values(state.sessions);
             let { prediction, recommendation, analysisText, confidence } = state.matcher.getPrediction(currentHistory, allHistory);
             
+            // Store the raw prediction for the next result
+            state.currentPrediction = { prediction, confidence };
+
             let finalPrediction = prediction;
             let finalRecommendation = recommendation;
             let recommendationNote = '';
 
             if (prediction) { // Only proceed if there is a prediction
                 let isInGoldenRange = false;
-                if (state.goldenRange) {
-                    if (confidence >= state.goldenRange.min && confidence <= state.goldenRange.max) {
-                        isInGoldenRange = true;
-                    }
+                if (state.goldenRange && confidence >= state.goldenRange.min && confidence <= state.goldenRange.max) {
+                    isInGoldenRange = true;
                 }
 
                 if (isInGoldenRange) {
                     if (state.goldenRange.rate < 30) {
-                        // Invert the prediction
                         finalPrediction = prediction === 'P' ? 'B' : 'P';
                         finalRecommendation = `ĐỀ XUẤT NGƯỢC (Tỷ lệ thấp)`;
                         recommendationNote = `<div class="mt-2 p-2 text-center bg-red-800 bg-opacity-50 rounded-lg text-sm text-red-300 font-semibold">⚠️ Đảo ngược! Khoảng vàng (${state.goldenRange.min}-${state.goldenRange.max}%) có tỷ lệ thắng chỉ ${state.goldenRange.rate.toFixed(1)}%.</div>`;
@@ -368,8 +370,6 @@
                 }
             }
             
-            state.accuracyTracker.makePrediction(prediction, confidence);
-
             const analysisResultDiv = document.getElementById('analysisResult');
             const analysisCard = document.getElementById('analysis-card');
             analysisCard.classList.remove('card-glow-p', 'card-glow-b');
@@ -401,20 +401,16 @@
                 {min: 80, max: 90, total: 0, wins: 0},
                 {min: 90, max: 100, total: 0, wins: 0},
             ];
+
             predictions.forEach(p => {
                 const confidence = p.confidence;
                 if (confidence) {
                     for (const range of ranges) {
-                        if (confidence >= range.min && confidence < range.max) {
+                        if (confidence >= range.min && (confidence < range.max || (range.max === 100 && confidence >= 100))) {
                             range.total++;
                             if (p.predicted === p.actual) range.wins++;
                             break;
                         }
-                    }
-                    if (confidence >= 100) {
-                        const lastRange = ranges[ranges.length - 1];
-                        lastRange.total++;
-                        if (p.predicted === p.actual) lastRange.wins++;
                     }
                 }
             });
@@ -424,18 +420,16 @@
             
             let bestRange = null;
             let maxRate = -1;
+
             ranges.forEach(range => {
                 const rate = range.total > 0 ? ((range.wins / range.total) * 100) : -1;
+                range.rate = rate; // Attach rate for later use
                 if (range.total >= 3 && rate > maxRate) {
                     maxRate = rate;
                     bestRange = range;
                 }
             });
             
-            ranges.forEach(range => {
-                range.rate = range.total > 0 ? ((range.wins / range.total) * 100) : -1;
-            });
-
             state.goldenRange = bestRange; 
 
             if (bestRange) {
@@ -456,6 +450,7 @@
                 tableDiv.innerHTML = '<p class="text-gray-500 text-center py-4">Chưa có dữ liệu thống kê.</p>';
                 return;
             }
+
             ranges.forEach(range => {
                 const rate = range.rate;
                 const isBest = range === bestRange;
@@ -482,34 +477,34 @@
         // --- EVENT HANDLERS & ACTIONS ---
         function addResult(result) {
             if (!state.currentSessionId) return;
-            const session = state.sessions[state.currentSessionId];
 
-            const lastPrediction = state.accuracyTracker.currentPrediction;
-            if(lastPrediction && lastPrediction.prediction) {
-                session.predictions.push({
-                    predicted: lastPrediction.prediction,
+            // Record the actual result against the last prediction made
+            if (state.currentPrediction && state.currentPrediction.prediction) {
+                state.sessions[state.currentSessionId].predictions.push({ 
+                    predicted: state.currentPrediction.prediction, 
                     actual: result,
-                    confidence: lastPrediction.confidence,
-                    index: session.history.length
+                    confidence: state.currentPrediction.confidence
                 });
             }
-            state.accuracyTracker.recordActualResult();
+            state.currentPrediction = null; // Clear after recording
+
+            // Add the new result to history
+            state.sessions[state.currentSessionId].history.push(result);
             
-            session.history.push(result);
             saveSessions();
             updateAllUI();
         }
 
         function undoLast() {
-            if (!state.currentSessionId) return;
-            const session = state.sessions[state.currentSessionId];
-            if(session.history.length === 0) return;
-
-            const lastHistoryIndex = session.history.length - 1;
-            session.history.pop();
-
-            if (session.predictions.length > 0 && session.predictions[session.predictions.length - 1].index === lastHistoryIndex) {
-                 session.predictions.pop();
+            if (!state.currentSessionId || state.sessions[state.currentSessionId].history.length === 0) return;
+            
+            // Remove the last history entry
+            state.sessions[state.currentSessionId].history.pop();
+            
+            // Remove the last prediction record if it exists
+            const predictions = state.sessions[state.currentSessionId].predictions;
+            if (predictions.length > 0) {
+                predictions.pop();
             }
             
             saveSessions();
@@ -518,7 +513,7 @@
 
         function clearCurrentSessionHistory() {
             if (!state.currentSessionId) return;
-            if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử của phiên này không?')) {
+            if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử và thống kê của phiên này không?')) {
                 state.sessions[state.currentSessionId].history = [];
                 state.sessions[state.currentSessionId].predictions = [];
                 saveSessions();
@@ -537,11 +532,23 @@
             localStorage.setItem('baccaratPatternSessions_v4', JSON.stringify(state.sessions));
             localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
         }
+        
+        function renameSession() {
+            if (!state.currentSessionId) return;
+            const currentName = state.sessions[state.currentSessionId].name;
+            const newName = prompt("Nhập tên mới cho phiên:", currentName);
+            if (newName && newName.trim() !== "") {
+                state.sessions[state.currentSessionId].name = newName.trim();
+                saveSessions();
+                updateSessionSelector();
+            }
+        }
 
         function updateSessionSelector() {
             const selector = document.getElementById('sessionSelector');
             selector.innerHTML = '';
             const sortedKeys = Object.keys(state.sessions).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
+            
             sortedKeys.forEach((sessionId) => {
                 const session = state.sessions[sessionId];
                 const option = document.createElement('option');
@@ -554,30 +561,16 @@
         }
 
         function createNewSession() {
-            const defaultName = `Phiên ${new Date().toLocaleString('vi-VN')}`;
-            const sessionName = prompt("Nhập tên cho phiên mới:", defaultName);
-
             const newId = `session-${Date.now()}`;
             state.currentSessionId = newId;
             state.sessions[newId] = { 
-                name: sessionName || defaultName, 
+                name: `Phiên ${new Date().toLocaleString('vi-VN')}`, 
                 history: [],
-                predictions: [] 
+                predictions: [] // Initialize predictions array
             };
             saveSessions();
             updateSessionSelector();
             updateAllUI();
-        }
-
-        function renameCurrentSession() {
-             if (!state.currentSessionId) return;
-             const currentName = state.sessions[state.currentSessionId].name;
-             const newName = prompt("Nhập tên mới cho phiên:", currentName);
-             if (newName && newName.trim() !== '') {
-                 state.sessions[state.currentSessionId].name = newName.trim();
-                 saveSessions();
-                 updateSessionSelector();
-             }
         }
 
         function deleteSelectedSession() {
@@ -585,7 +578,7 @@
                 alert('Không thể xóa phiên cuối cùng.');
                 return;
             }
-            if (confirm(`Bạn có chắc muốn xóa phiên "${state.sessions[state.currentSessionId].name}" không?`)) {
+            if (confirm('Bạn có chắc muốn xóa phiên này không?')) {
                 delete state.sessions[state.currentSessionId];
                 state.currentSessionId = null;
                 localStorage.removeItem('lastActiveSession_v4');
@@ -597,6 +590,7 @@
         function loadSession(sessionId) {
             if (state.sessions[sessionId]) {
                 state.currentSessionId = sessionId;
+                state.currentPrediction = null; // Reset current prediction when switching sessions
                 localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
                 updateSessionSelector();
                 updateAllUI();
@@ -627,12 +621,19 @@
                 try {
                     const importedSessions = JSON.parse(e.target.result);
                     if (typeof importedSessions !== 'object' || importedSessions === null) throw new Error("Invalid format");
+                    
+                    // Validate and convert old format if necessary
                     for(const key in importedSessions) {
-                        const s = importedSessions[key];
-                         if(!s.name || !Array.isArray(s.history) || !Array.isArray(s.predictions)) {
-                             throw new Error("Invalid session data. Missing name, history or predictions.");
-                         }
+                        const session = importedSessions[key];
+                        if(!session.name || !Array.isArray(session.history)) {
+                             throw new Error("Invalid session data");
+                        }
+                        // If it's an old format file, add the predictions array
+                        if (!session.predictions) {
+                            session.predictions = [];
+                        }
                     }
+
                     if (confirm('Dữ liệu hiện tại sẽ bị ghi đè. Bạn có chắc muốn tiếp tục?')) {
                         state.sessions = importedSessions;
                         state.currentSessionId = null;
@@ -653,15 +654,8 @@
 
         function initializeApp() {
             state.sessions = getSessions();
-
-            // Data migration for older versions
-            Object.values(state.sessions).forEach(session => {
-                if (!session.predictions) {
-                    session.predictions = [];
-                }
-            });
-
             const lastActiveId = localStorage.getItem('lastActiveSession_v4');
+
             if (Object.keys(state.sessions).length === 0) {
                 createNewSession();
             } else {
