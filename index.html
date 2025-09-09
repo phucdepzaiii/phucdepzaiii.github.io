@@ -194,6 +194,46 @@
                          </div>
                      </div>
                 </div>
+                 <!-- Inversion Stats -->
+                <h3 class="text-lg font-semibold mt-6 mb-2 text-yellow-300">Thống Kê Hiệu Quả Đảo Ngược</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Flexible Inversion Stats -->
+                    <div class="bg-gray-700 p-4 rounded-lg space-y-2">
+                        <p class="font-semibold text-cyan-300 mb-2">Linh Hoạt</p>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-300">Không Đảo Ngược</span>
+                            <div>
+                                <span id="inversion_normal_rate_flexible" class="font-bold text-green-400">0.0%</span>
+                                <span class="text-gray-400">(<span id="inversion_normal_correct_flexible">0</span>/<span id="inversion_normal_total_flexible">0</span>)</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-300">Khi Đảo Ngược</span>
+                            <div>
+                                <span id="inversion_inverted_rate_flexible" class="font-bold text-yellow-400">0.0%</span>
+                                <span class="text-gray-400">(<span id="inversion_inverted_correct_flexible">0</span>/<span id="inversion_inverted_total_flexible">0</span>)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Stable Inversion Stats -->
+                    <div class="bg-gray-700 p-4 rounded-lg space-y-2">
+                         <p class="font-semibold text-purple-300 mb-2">Ổn Định</p>
+                         <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-300">Không Đảo Ngược</span>
+                            <div>
+                                <span id="inversion_normal_rate_stable" class="font-bold text-green-400">0.0%</span>
+                                <span class="text-gray-400">(<span id="inversion_normal_correct_stable">0</span>/<span id="inversion_normal_total_stable">0</span>)</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-300">Khi Đảo Ngược</span>
+                            <div>
+                                <span id="inversion_inverted_rate_stable" class="font-bold text-yellow-400">0.0%</span>
+                                <span class="text-gray-400">(<span id="inversion_inverted_correct_stable">0</span>/<span id="inversion_inverted_total_stable">0</span>)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Confidence Stats Table -->
@@ -376,7 +416,11 @@
         function calculateConfidenceRanges(strategy) {
             if (!state.currentSessionId || !state.sessions[state.currentSessionId]) return [];
             const sessionPredictions = state.sessions[state.currentSessionId].strategies[strategy].predictions || [];
-            const ranges = [
+            return calculateConfidenceRangesForSession(sessionPredictions);
+        }
+
+        function calculateConfidenceRangesForSession(sessionPredictions) {
+             const ranges = [
                 {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
                 {min: 80, max: 90}, {min: 90, max: 100}
             ];
@@ -454,26 +498,67 @@
             document.getElementById('globalTotalPredictions_stable').textContent = stableStats.total;
         }
 
+        function calculateFinalPrediction(result, confidenceRanges, sessionPredictions) {
+            let { prediction, confidence } = result;
+            let finalPrediction = prediction;
+            let isInverted = false;
+            let recommendationNote = '';
+
+            if (prediction && confidence && confidenceRanges && sessionPredictions) {
+                const relevantRange = confidenceRanges.find(r => confidence >= r.min && (confidence < r.max || (r.max === 100 && confidence >= 100)));
+                
+                if (relevantRange && relevantRange.total > 0) {
+                    const predictionsForRange = sessionPredictions.filter(p => {
+                        const conf = p.confidence;
+                        return conf >= relevantRange.min && (conf < relevantRange.max || (relevantRange.max === 100 && conf >= 100));
+                    });
+
+                    if (predictionsForRange.length > 0) {
+                        const lastPredictionInRange = predictionsForRange[predictionsForRange.length - 1];
+                        const lastOneWasLoss = lastPredictionInRange.predicted !== lastPredictionInRange.actual;
+
+                        if (lastOneWasLoss) {
+                            finalPrediction = prediction === 'P' ? 'B' : 'P';
+                            isInverted = true;
+                            recommendationNote = `<div class="mt-2 p-2 text-center bg-red-800 bg-opacity-50 rounded-lg text-sm text-red-300 font-semibold">
+                                                    ⚠️ Đảo ngược! Ván gần nhất trong khoảng này (${relevantRange.min}-${relevantRange.max}%) đã sai.
+                                                </div>`;
+                        }
+                    }
+                }
+            }
+            return { prediction: finalPrediction, isInverted, recommendationNote };
+        }
+
         function updateAnalysisUI(flexConfidenceRanges, stableConfidenceRanges) {
             if (!state.currentSessionId) return;
             const session = state.sessions[state.currentSessionId];
             const currentHistory = session.history;
             const allHistory = Object.values(state.sessions);
 
-            // Analyze for both strategies
+            // Get initial predictions
             const flexResult = state.matcher.getPrediction(currentHistory, allHistory, session.strategies.flexible);
             const stableResult = state.matcher.getPrediction(currentHistory, allHistory, session.strategies.stable);
 
-            state.currentPrediction = { flexible: flexResult, stable: stableResult };
+            // Determine final predictions with potential inversion
+            const finalFlex = calculateFinalPrediction(flexResult, flexConfidenceRanges, session.strategies.flexible.predictions);
+            const finalStable = calculateFinalPrediction(stableResult, stableConfidenceRanges, session.strategies.stable.predictions);
 
-            // Update UI for each strategy
-            updateStrategyAnalysisCard('flexible', flexResult, flexConfidenceRanges);
-            updateStrategyAnalysisCard('stable', stableResult, stableConfidenceRanges);
+            // Store everything needed for the next `addResult` call
+            state.currentPrediction = {
+                flexible: { ...flexResult, ...finalFlex, originalPrediction: flexResult.prediction },
+                stable: { ...stableResult, ...finalStable, originalPrediction: stableResult.prediction }
+            };
+
+            // Update the UI cards
+            updateStrategyAnalysisCard('flexible', flexResult, finalFlex);
+            updateStrategyAnalysisCard('stable', stableResult, finalStable);
         }
 
-        function updateStrategyAnalysisCard(strategy, result, confidenceRanges) {
+        function updateStrategyAnalysisCard(strategy, result, finalPredictionDetails) {
             const container = document.getElementById(`analysis-${strategy}`);
-            let { prediction, analysisText, confidence, lengthUsed, lengthPerf } = result;
+            const { prediction, analysisText, confidence, lengthUsed, lengthPerf } = result;
+            const { prediction: finalPrediction, recommendationNote } = finalPredictionDetails;
 
             if (!prediction) {
                 container.innerHTML = `
@@ -484,25 +569,6 @@
                     <div class="text-gray-400 text-center py-8 whitespace-pre-wrap">${analysisText}</div>`;
                 return;
             }
-
-            // --- INVERSION LOGIC ---
-            let finalPrediction = prediction;
-            let recommendationNote = '';
-            
-            if (confidence && confidenceRanges) {
-                const relevantRange = confidenceRanges.find(r => confidence >= r.min && (confidence < r.max || (r.max === 100 && confidence >= 100)));
-                
-                if (relevantRange) {
-                    const losses = relevantRange.total - relevantRange.wins;
-                    if (losses > 0) { // New condition: if there is at least ONE loss
-                        finalPrediction = prediction === 'P' ? 'B' : 'P';
-                        recommendationNote = `<div class="mt-2 p-2 text-center bg-red-800 bg-opacity-50 rounded-lg text-sm text-red-300 font-semibold">
-                                                ⚠️ Đảo ngược! Khoảng tin cậy này (${relevantRange.min}-${relevantRange.max}%) đã có ván sai.
-                                              </div>`;
-                    }
-                }
-            }
-            // --- END INVERSION LOGIC ---
 
             const lengthDisplay = lengthUsed ? `<b class="text-white text-lg">${lengthUsed}</b>` : `<span class="text-gray-400">Đang tìm...</span>`;
             const rateText = (lengthUsed && lengthPerf && lengthPerf.total > 0) ? `Tỷ lệ: ${(lengthPerf.wins / lengthPerf.total * 100).toFixed(1)}% (${lengthPerf.wins}/${lengthPerf.total})` : 'Chưa có thống kê';
@@ -545,7 +611,7 @@
 
             ranges.forEach(range => {
                 if (range.total >= 3 && range.rate > maxRate) {
-                    maxRate = range.rate; // FIX: Was 'rate', should be 'range.rate'
+                    maxRate = range.rate; 
                     bestRange = range;
                 }
             });
@@ -574,7 +640,6 @@
                 const isBest = range === bestRange;
                 let highlightClass = isBest ? 'bg-green-800 bg-opacity-40 border-green-600' : 'bg-gray-700 bg-opacity-50 border-transparent';
                 
-                // Add flashing borders
                 let animationClass = '';
                 if (lastPredictionConfidence && lastPredictionConfidence >= range.min && (lastPredictionConfidence < range.max || (range.max === 100 && lastPredictionConfidence >= 100))) {
                     animationClass = 'flash-yellow';
@@ -608,11 +673,39 @@
             tableDiv.innerHTML = html;
         }
 
+        function calculateInversionStats(strategy) {
+            const allPredictions = Object.values(state.sessions).flatMap(s => s.strategies[strategy].predictions);
+            const normalPredictions = allPredictions.filter(p => !p.isInverted);
+            const invertedPredictions = allPredictions.filter(p => p.isInverted);
+            return {
+                normal: getPredictionStats(normalPredictions),
+                inverted: getPredictionStats(invertedPredictions),
+            };
+        }
+
+        function updateInversionStatsUI() {
+            const flexStats = calculateInversionStats('flexible');
+            document.getElementById('inversion_normal_rate_flexible').textContent = `${flexStats.normal.rate.toFixed(1)}%`;
+            document.getElementById('inversion_normal_correct_flexible').textContent = flexStats.normal.correct;
+            document.getElementById('inversion_normal_total_flexible').textContent = flexStats.normal.total;
+            document.getElementById('inversion_inverted_rate_flexible').textContent = `${flexStats.inverted.rate.toFixed(1)}%`;
+            document.getElementById('inversion_inverted_correct_flexible').textContent = flexStats.inverted.correct;
+            document.getElementById('inversion_inverted_total_flexible').textContent = flexStats.inverted.total;
+
+            const stableStats = calculateInversionStats('stable');
+            document.getElementById('inversion_normal_rate_stable').textContent = `${stableStats.normal.rate.toFixed(1)}%`;
+            document.getElementById('inversion_normal_correct_stable').textContent = stableStats.normal.correct;
+            document.getElementById('inversion_normal_total_stable').textContent = stableStats.normal.total;
+            document.getElementById('inversion_inverted_rate_stable').textContent = `${stableStats.inverted.rate.toFixed(1)}%`;
+            document.getElementById('inversion_inverted_correct_stable').textContent = stableStats.inverted.correct;
+            document.getElementById('inversion_inverted_total_stable').textContent = stableStats.inverted.total;
+        }
+
         function updateAllUI() {
             updateBigRoadUI();
             updateGlobalAccuracyUI();
+            updateInversionStatsUI();
             
-            // Re-ordered and passing data down
             const flexConfidenceRanges = calculateConfidenceRanges('flexible');
             const stableConfidenceRanges = calculateConfidenceRanges('stable');
 
@@ -636,38 +729,42 @@
             const historyBeforeAdd = [...session.history];
             const allHistory = Object.values(state.sessions);
             
-            state.lastPredictionResult = { // Store confidence for highlighting
+            state.lastPredictionResult = {
                 flexible: { confidence: state.currentPrediction.flexible?.confidence },
                 stable: { confidence: state.currentPrediction.stable?.confidence },
             };
 
             // Process flexible strategy
             const flexStrat = session.strategies.flexible;
-            if (state.currentPrediction.flexible?.prediction) {
+            if (state.currentPrediction.flexible?.originalPrediction) {
                 flexStrat.predictions.push({ 
+                    originalPrediction: state.currentPrediction.flexible.originalPrediction,
                     predicted: state.currentPrediction.flexible.prediction, 
                     actual: result,
-                    confidence: state.currentPrediction.flexible.confidence
+                    confidence: state.currentPrediction.flexible.confidence,
+                    isInverted: state.currentPrediction.flexible.isInverted
                 });
             }
             flexStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, result, flexStrat.lengthPerformance);
             
             // Process stable strategy
             const stableStrat = session.strategies.stable;
-            let stablePredictionCorrect = false;
-            if (state.currentPrediction.stable?.prediction) {
-                stablePredictionCorrect = state.currentPrediction.stable.prediction === result;
+            if (state.currentPrediction.stable?.originalPrediction) {
+                const stablePredictionCorrect = state.currentPrediction.stable.originalPrediction === result;
                 stableStrat.predictions.push({ 
-                    predicted: state.currentPrediction.stable.prediction, 
+                    originalPrediction: state.currentPrediction.stable.originalPrediction,
+                    predicted: state.currentPrediction.stable.prediction,
                     actual: result,
-                    confidence: state.currentPrediction.stable.confidence
+                    confidence: state.currentPrediction.stable.confidence,
+                    isInverted: state.currentPrediction.stable.isInverted
                 });
+                if (!stablePredictionCorrect || !stableStrat.optimalLength) {
+                    stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, result, stableStrat.lengthPerformance);
+                }
+            } else if (!stableStrat.optimalLength) {
+                 stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, result, stableStrat.lengthPerformance);
             }
-            // Only find a new length if the prediction was wrong or doesn't exist
-            if (!stablePredictionCorrect || !stableStrat.optimalLength) {
-                stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, result, stableStrat.lengthPerformance);
-            }
-
+            
             session.history.push(result);
             saveSessions();
             updateAllUI();
@@ -717,9 +814,8 @@
             session.history.pop();
             session.strategies.flexible.predictions.pop();
             session.strategies.stable.predictions.pop();
-            // Note: Undoing optimal length recalculation is complex, so we accept this minor inaccuracy.
             
-            state.lastPredictionResult = { flexible: null, stable: null }; // Clear highlight
+            state.lastPredictionResult = { flexible: null, stable: null }; 
             saveSessions();
             updateAllUI();
         }
@@ -766,18 +862,16 @@
             listContainer.innerHTML = '';
             const sortedKeys = Object.keys(state.sessions).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
             
-            let lastShiftClicked = null; // for shift-click logic
+            let lastShiftClicked = null;
 
             sortedKeys.forEach((sessionId) => {
                 const session = state.sessions[sessionId];
                 
-                // For dropdown
                 const option = document.createElement('option');
                 option.value = sessionId;
                 option.textContent = `${session.name} (${session.history.length} ván)`;
                 selector.appendChild(option);
 
-                // For selection list
                 const listItem = document.createElement('div');
                 listItem.className = 'flex items-center gap-3 p-2 bg-gray-700 rounded-lg';
                 const checkbox = document.createElement('input');
@@ -834,7 +928,7 @@
                 state.currentPrediction = { flexible: null, stable: null };
                 state.lastPredictionResult = { flexible: null, stable: null };
                 localStorage.setItem('lastActiveSession_v5', state.currentSessionId);
-                if(state.selectionMode) toggleSelectionMode(); // Exit selection mode on load
+                if(state.selectionMode) toggleSelectionMode();
                 updateSessionSelector();
                 updateAllUI();
             }
@@ -851,7 +945,7 @@
                 btn.textContent = '✅ Xong';
                 btn.classList.replace('bg-indigo-600', 'bg-green-600');
                 btn.classList.replace('hover:bg-indigo-500', 'hover:bg-green-500');
-                updateSessionSelector(); // Re-render to create checkboxes
+                updateSessionSelector();
             } else {
                 btn.textContent = '📋 Chọn...';
                 btn.classList.replace('bg-green-600', 'bg-indigo-600');
@@ -900,7 +994,7 @@
             const allSessions = Object.values(state.sessions);
             const goodTables = [];
             allSessions.forEach(session => {
-                if(session.history.length < 20) return; // Skip short sessions
+                if(session.history.length < 20) return;
                 
                 const flexStats = getPredictionStats(session.strategies.flexible.predictions);
                 if (flexStats.total > 10 && (flexStats.rate > 65 || flexStats.rate < 35)) {
@@ -945,12 +1039,10 @@
                     const importedSessions = JSON.parse(e.target.result);
                     if (typeof importedSessions !== 'object' || importedSessions === null) throw new Error("Invalid format");
                     
-                    // Đã loại bỏ hộp thoại xác nhận theo yêu cầu. File mới sẽ tự động ghi đè.
                     state.sessions = importedSessions;
-                    recalculateAllSessions(); // This is the new heavy-lifting function
+                    recalculateAllSessions();
                     
                 } catch (error) {
-                    // Thay thế alert bằng console.error để tránh làm gián đoạn trải nghiệm người dùng.
                     console.error('Lỗi: File dữ liệu không hợp lệ. Vui lòng kiểm tra lại file.', error);
                 } finally {
                     event.target.value = '';
@@ -970,15 +1062,13 @@
 
             sessionKeys.forEach(key => {
                 const session = state.sessions[key];
-                // Ensure new structure exists
-                if (!session.strategies) {
-                    session.strategies = createNewStrategiesObject();
-                } else { // Clear old calculated data
+                if (!session.strategies) session.strategies = createNewStrategiesObject();
+                else { 
                     session.strategies.flexible.predictions = [];
                     session.strategies.stable.predictions = [];
                 }
                 const history = session.history || [];
-                session.history = []; // Clear history to rebuild it step-by-step
+                session.history = []; 
                 for(let i=0; i<history.length; i++) {
                     allHistoryEntries.push({ sessionId: key, result: history[i] });
                 }
@@ -989,38 +1079,64 @@
 
             function processNextEntry() {
                 if (currentIndex >= totalEntries) {
-                    // Finished
                     progressContainer.style.display = 'none';
                     state.currentSessionId = null;
                     localStorage.removeItem('lastActiveSession_v5');
                     saveSessions();
                     initializeApp();
-                    // Thay thế alert bằng console.log để thông báo trong nền.
                     console.log('Nhập và tính toán lại dữ liệu thành công!');
                     return;
                 }
                 
                 const entry = allHistoryEntries[currentIndex];
                 const session = state.sessions[entry.sessionId];
+                const allHistory = Object.values(state.sessions);
                 const historyBeforeAdd = [...session.history];
 
-                // Simplified addResult logic for recalculation
-                const flexStrat = session.strategies.flexible;
-                flexStrat.optimalLength = findOptimalLength(historyBeforeAdd, Object.values(state.sessions), entry.result, flexStrat.lengthPerformance);
+                // --- Recalculation Step ---
+                const flexResult = state.matcher.getPrediction(historyBeforeAdd, allHistory, session.strategies.flexible);
+                const stableResult = state.matcher.getPrediction(historyBeforeAdd, allHistory, session.strategies.stable);
+
+                const flexConfidenceRanges = calculateConfidenceRangesForSession(session.strategies.flexible.predictions);
+                const stableConfidenceRanges = calculateConfidenceRangesForSession(session.strategies.stable.predictions);
                 
-                const stableStrat = session.strategies.stable;
-                const stablePrediction = state.matcher.getPrediction(historyBeforeAdd, Object.values(state.sessions), stableStrat);
-                const stablePredictionCorrect = stablePrediction.prediction === entry.result;
-                if (!stablePredictionCorrect) {
-                     stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, Object.values(state.sessions), entry.result, stableStrat.lengthPerformance);
+                const finalFlex = calculateFinalPrediction(flexResult, flexConfidenceRanges, session.strategies.flexible.predictions);
+                const finalStable = calculateFinalPrediction(stableResult, stableConfidenceRanges, session.strategies.stable.predictions);
+
+                const flexStrat = session.strategies.flexible;
+                if (flexResult.prediction) {
+                    flexStrat.predictions.push({
+                        originalPrediction: flexResult.prediction,
+                        predicted: finalFlex.prediction,
+                        actual: entry.result,
+                        confidence: flexResult.confidence,
+                        isInverted: finalFlex.isInverted
+                    });
                 }
 
+                const stableStrat = session.strategies.stable;
+                if (stableResult.prediction) {
+                    const stablePredictionCorrect = stableResult.prediction === entry.result;
+                    stableStrat.predictions.push({
+                        originalPrediction: stableResult.prediction,
+                        predicted: finalStable.prediction,
+                        actual: entry.result,
+                        confidence: stableResult.confidence,
+                        isInverted: finalStable.isInverted
+                    });
+                    if (!stablePredictionCorrect || !stableStrat.optimalLength) {
+                        stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, entry.result, stableStrat.lengthPerformance);
+                    }
+                } else if(!stableStrat.optimalLength){
+                    stableStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, entry.result, stableStrat.lengthPerformance);
+                }
+
+                flexStrat.optimalLength = findOptimalLength(historyBeforeAdd, allHistory, entry.result, flexStrat.lengthPerformance);
                 session.history.push(entry.result);
                 
                 currentIndex++;
                 progressBar.style.width = `${(currentIndex / totalEntries) * 100}%`;
                 
-                // Yield to the browser to update UI
                 setTimeout(processNextEntry, 0);
             }
             processNextEntry();
@@ -1029,7 +1145,6 @@
         function initializeApp() {
             state.sessions = getSessions();
             
-            // Ensure all loaded sessions have the new properties
             Object.values(state.sessions).forEach(session => {
                 if (!session.strategies) {
                     session.strategies = createNewStrategiesObject();
