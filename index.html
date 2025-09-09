@@ -545,7 +545,7 @@
 
             ranges.forEach(range => {
                 if (range.total >= 3 && range.rate > maxRate) {
-                    maxRate = rate;
+                    maxRate = range.rate; // FIX: Was 'rate', should be 'range.rate'
                     bestRange = range;
                 }
             });
