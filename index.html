@@ -661,7 +661,22 @@ const perf = lengthPerformance[optimalLength] || { wins: 0, total: 0 };
 
 const rate = perf.total > 0 ? (perf.wins / perf.total * 100).toFixed(1) : 'N/A';
 
-const analysisText = `Sử dụng chiều dài cầu tối ưu: ${optimalLength} ván.\n(Tỷ lệ thắng của chiều dài này: ${rate}% - ${perf.wins}/${perf.total})\n\nLịch sử cho thấy:\n- PLAYER: ${result.votes.P.toFixed(1)} điểm\n- BANKER: ${result.votes.B.toFixed(1)} điểm`;
+// --- MODIFICATION START ---
+let confidenceRangeTextOptimal = '';
+if (result.confidence >= 50) {
+    const ranges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    for (const range of ranges) {
+        if (result.confidence >= range.min && (result.confidence < range.max || (range.max === 100 && result.confidence >= 100))) {
+            confidenceRangeTextOptimal = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
+            break;
+        }
+    }
+}
+const analysisText = `Sử dụng chiều dài cầu tối ưu: ${optimalLength} ván.\n(Tỷ lệ thắng của chiều dài này: ${rate}% - ${perf.wins}/${perf.total})\n\nLịch sử cho thấy:\n- PLAYER: ${result.votes.P.toFixed(1)} điểm\n- BANKER: ${result.votes.B.toFixed(1)} điểm\n\n🏆 Độ tin cậy: ${result.confidence.toFixed(1)}% ${confidenceRangeTextOptimal}`;
+// --- MODIFICATION END ---
 
 return {
 
@@ -770,8 +785,22 @@ else if (streakInfo.type === '1-1' && predictedWinner === currentHistory[current
 else recommendation = `THEO PHÂN TÍCH LỊCH SỬ`;
 
 
-const analysisText = `${analysisTextPrefix}\n\n🏆 Độ tin cậy: ${maxConfidence.toFixed(1)}%`;
-
+// --- MODIFICATION START ---
+let confidenceRangeTextFallback = '';
+if (maxConfidence >= 50) {
+    const ranges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    for (const range of ranges) {
+        if (maxConfidence >= range.min && (maxConfidence < range.max || (range.max === 100 && maxConfidence >= 100))) {
+            confidenceRangeTextFallback = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
+            break;
+        }
+    }
+}
+const analysisText = `${analysisTextPrefix}\n\n🏆 Độ tin cậy: ${maxConfidence.toFixed(1)}% ${confidenceRangeTextFallback}`;
+// --- MODIFICATION END ---
 return { prediction: predictedWinner, recommendation, analysisText, confidence: maxConfidence, isCertain: false };
 
 }
