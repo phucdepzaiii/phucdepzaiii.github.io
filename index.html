@@ -13,6 +13,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
 
 <style>
 
@@ -451,6 +453,24 @@ to { opacity: 1; transform: scale(1); }
 
 </div>
 
+<!-- NEW: Trend Stats -->
+<div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+    <h2 class="text-xl font-semibold mb-4 text-indigo-300">📈 Thống Kê Xu Hướng Ngược</h2>
+    <div class="space-y-4">
+        <div class="flex justify-between items-center bg-gray-700 p-4 rounded-lg">
+            <span class="font-medium text-gray-300">Tỷ Lệ Thắng</span>
+            <span id="trendAccuracyRate" class="text-2xl font-bold text-indigo-400">0.0%</span>
+        </div>
+        <div class="flex justify-between items-center bg-gray-700 p-4 rounded-lg">
+            <span class="font-medium text-gray-300">Thắng / Tổng Phán Đoán</span>
+            <div>
+                <span id="trendCorrectPredictions" class="text-lg font-semibold text-white">0</span>
+                <span class="text-gray-400">/</span>
+                <span id="trendTotalPredictions" class="text-lg font-semibold text-white">0</span>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 <!-- Pattern Analysis -->
@@ -465,6 +485,16 @@ to { opacity: 1; transform: scale(1); }
 
 </div>
 
+</div>
+
+<!-- NEW: Trend-based Analysis -->
+<div id="trend-analysis-card" class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+    <h2 class="text-xl font-semibold mb-4 text-indigo-300">
+        <i class="fa-solid fa-arrows-rotate mr-2"></i>Phân Tích Xu Hướng Ngược
+    </h2>
+    <div id="trendAnalysisResult" class="space-y-4 text-center">
+        <p class="text-gray-400 py-8">Chờ phán đoán tiếp theo...</p>
+    </div>
 </div>
 
 
@@ -871,7 +901,7 @@ if (maxConfidence >= 50) {
         {min: 80, max: 90}, {min: 90, max: 100}
     ];
     for (const range of ranges) {
-        if (maxConfidence >= range.min && (maxConfidence < range.max || (range.max === 100 && maxConfidence >= 100))) {
+        if (maxConfidence >= range.min && (maxConfidence < range.max || (maxConfidence === 100 && maxConfidence >= 100))) {
             confidenceRangeTextFallback = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
             break;
         }
@@ -1045,6 +1075,17 @@ document.getElementById('globalCorrectPredictions').textContent = stats.correct;
 
 document.getElementById('globalTotalPredictions').textContent = stats.total;
 
+}
+
+function updateTrendStatsUI() {
+    if (!state.currentSessionId || !state.sessions[state.currentSessionId]) return;
+    
+    const trendPredictions = state.sessions[state.currentSessionId].trendPredictions || [];
+    const stats = getPredictionStats(trendPredictions);
+
+    document.getElementById('trendAccuracyRate').textContent = `${stats.rate.toFixed(1)}%`;
+    document.getElementById('trendCorrectPredictions').textContent = stats.correct;
+    document.getElementById('trendTotalPredictions').textContent = stats.total;
 }
 
 
@@ -1394,13 +1435,13 @@ const isBest = range === bestRange;
 
 let isCurrentPredictionRange = false;
 if (currentConfidence) {
-    if (currentConfidence >= range.min && (currentConfidence < range.max || (range.max === 100 && currentConfidence >= 100))) {
+    if (currentConfidence >= range.min && (currentConfidence < range.max || (currentConfidence === 100 && range.max === 100))) {
         isCurrentPredictionRange = true;
     }
 }
 let isPreviousPredictionRange = false;
 if (previousConfidence) {
-    if (previousConfidence >= range.min && (previousConfidence < range.max || (range.max === 100 && previousConfidence >= 100))) {
+    if (previousConfidence >= range.min && (previousConfidence < range.max || (previousConfidence === 100 && range.max === 100))) {
         isPreviousPredictionRange = true;
     }
 }
@@ -1420,8 +1461,8 @@ if (range.predictions && range.predictions.length > 0) {
 
 // CORRECTED LOGIC: Prioritize current, but allow previous if not overlapping.
 const rowHighlightClasses = [
-    'p-3', 'rounded-lg', 'mt-2', 'transition-all', 'duration-300',
-    ...(isBest ? ['bg-blue-800', 'bg-opacity-40', 'border', 'border-blue-500'] : ['bg-gray-700', 'bg-opacity-50']),
+    'p-3', 'rounded-lg', 'mt-2', 'transition-all', 'duration-300', 'border-2', 'border-transparent', /* Base border */
+    ...(isBest ? ['bg-blue-800/40'] : ['bg-gray-700/50']),
     ...(isCurrentPredictionRange ? ['current-prediction-range'] : 
         (isPreviousPredictionRange ? ['previous-prediction-range'] : [])
     )
@@ -1451,15 +1492,81 @@ tableDiv.innerHTML = html;
 
 }
 
+function updateTrendAnalysisUI() {
+    const resultDiv = document.getElementById('trendAnalysisResult');
+    const { prediction, confidence } = state.currentPrediction || {};
+    
+    if (!prediction) {
+        resultDiv.innerHTML = '<p class="text-gray-400 py-8">Chờ phán đoán tiếp theo...</p>';
+        return;
+    }
+
+    const sessionPredictions = state.sessions[state.currentSessionId]?.predictions || [];
+    const confidenceRanges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+
+    const currentRange = confidenceRanges.find(r => confidence >= r.min && (confidence < r.max || (r.max === 100 && confidence >= 100)));
+
+    if (!currentRange) {
+         resultDiv.innerHTML = '<p class="text-gray-500 py-4">Độ tin cậy dưới 50%, không áp dụng phân tích xu hướng.</p>';
+        return;
+    }
+
+    const predictionsInSameRange = sessionPredictions.filter(p => {
+        return p.confidence >= currentRange.min && (p.confidence < currentRange.max || (p.confidence === 100 && currentRange.max === 100));
+    });
+
+    if (predictionsInSameRange.length === 0) {
+        resultDiv.innerHTML = `<p class="text-gray-400 py-4">Chưa có dữ liệu xu hướng cho khoảng ${currentRange.min}-${currentRange.max}%.</p>`;
+        return;
+    }
+
+    const lastPredictionInRage = predictionsInSameRange[predictionsInSameRange.length - 1];
+    const wasLastOneWrong = lastPredictionInRage.predicted !== lastPredictionInRage.actual;
+    
+    let finalSuggestion, recommendationText, iconClass, textColor, borderColor;
+
+    if (wasLastOneWrong) {
+        finalSuggestion = prediction === 'P' ? 'B' : 'P';
+        recommendationText = 'ĐỀ XUẤT NGƯỢC';
+        iconClass = 'fa-solid fa-repeat text-yellow-400';
+        textColor = 'text-yellow-400';
+        borderColor = 'border-yellow-500';
+    } else {
+        finalSuggestion = prediction;
+        recommendationText = 'THEO XU HƯỚNG';
+        iconClass = 'fa-solid fa-arrow-trend-up text-green-400';
+        textColor = 'text-green-400';
+        borderColor = 'border-green-500';
+    }
+
+    const infoText = wasLastOneWrong ? 'Ván trước trong khoảng này đã SAI' : 'Ván trước trong khoảng này đã ĐÚNG';
+    
+    resultDiv.innerHTML = `
+        <div class="text-center bg-gray-900 py-4 rounded-lg border-2 ${borderColor}">
+            <p class="text-lg text-gray-400 mb-2 flex items-center justify-center gap-2">
+                <i class="${iconClass}"></i>
+                <span class="${textColor} font-extrabold text-2xl">${recommendationText}</span>
+            </p>
+            <p class="text-4xl font-bold mt-2">${finalSuggestion === 'P' ? '👤 PLAYER' : '🏦 BANKER'}</p>
+            <p class="text-xs text-gray-500 mt-2">(${infoText})</p>
+        </div>
+    `;
+}
+
 
 
 function updateAllUI() {
-updateSessionListUI();
-updateBigRoadUI();
-updateAccuracyUI();
-updateGlobalAccuracyUI();
-updateAnalysisUI();
-updateConfidenceStatsUI();
+    updateSessionListUI();
+    updateBigRoadUI();
+    updateAccuracyUI();
+    updateGlobalAccuracyUI();
+    updateTrendStatsUI(); // Added this call
+    updateAnalysisUI();
+    updateConfidenceStatsUI();
+    updateTrendAnalysisUI();
 }
 
 
@@ -1489,18 +1596,45 @@ session.optimalLength = newOptimalLength;
 // Original logic: Store the last prediction vs actual result
 
 if (state.currentPrediction && state.currentPrediction.prediction) {
+    const { prediction: mainPrediction, confidence } = state.currentPrediction;
+    
+    // --- START: Store Trend Prediction Logic ---
+    const confidenceRanges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    const currentRange = confidenceRanges.find(r => confidence >= r.min && (confidence < r.max || (r.max === 100 && confidence >= 100)));
 
-session.predictions.push({
+    if (currentRange) {
+        const predictionsInSameRange = session.predictions.filter(p => 
+            p.confidence >= currentRange.min && (p.confidence < currentRange.max || (p.confidence === 100 && currentRange.max === 100))
+        );
 
-predicted: state.currentPrediction.prediction,
+        if (predictionsInSameRange.length > 0) {
+            const lastPredictionInRage = predictionsInSameRange[predictionsInSameRange.length - 1];
+            const wasLastOneWrong = lastPredictionInRage.predicted !== lastPredictionInRage.actual;
+            
+            let trendSuggestion = wasLastOneWrong ? (mainPrediction === 'P' ? 'B' : 'P') : mainPrediction;
 
-actual: result,
+            if (!session.trendPredictions) {
+                session.trendPredictions = [];
+            }
+            session.trendPredictions.push({
+                predicted: trendSuggestion,
+                actual: result
+            });
+        }
+    }
+    // --- END: Store Trend Prediction Logic ---
 
-confidence: state.currentPrediction.confidence
-
-});
-
+    // Store the main prediction
+    session.predictions.push({
+        predicted: mainPrediction,
+        actual: result,
+        confidence: confidence
+    });
 }
+
 
 state.currentPrediction = null;
 
@@ -1636,11 +1770,24 @@ state.sessions[state.currentSessionId].history.pop();
 
 
 const predictions = state.sessions[state.currentSessionId].predictions;
-
 if (predictions.length > 0) {
-
-predictions.pop();
-
+    const lastPrediction = predictions.pop();
+    
+    // Check if a trend prediction was made for this hand and remove it too
+    const { confidence } = lastPrediction;
+    const confidenceRanges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    const currentRange = confidenceRanges.find(r => confidence >= r.min && (confidence < r.max || (r.max === 100 && confidence >= 100)));
+    if(currentRange) {
+         const predictionsInSameRange = state.sessions[state.currentSessionId].predictions.filter(p => 
+            p.confidence >= currentRange.min && (p.confidence < currentRange.max || (p.confidence === 100 && currentRange.max === 100))
+        );
+        if (predictionsInSameRange.length > 0 && state.sessions[state.currentSessionId].trendPredictions.length > 0) {
+            state.sessions[state.currentSessionId].trendPredictions.pop();
+        }
+    }
 }
 
 
@@ -1663,6 +1810,7 @@ const session = state.sessions[state.currentSessionId];
 session.history = [];
 
 session.predictions = [];
+session.trendPredictions = [];
 
 session.lengthPerformance = {};
 
@@ -1808,6 +1956,7 @@ name: `Phiên ${new Date().toLocaleString('vi-VN')}`,
 history: [],
 
 predictions: [],
+trendPredictions: [],
 
 lengthPerformance: {},
 
@@ -1964,7 +2113,7 @@ throw new Error("Invalid session data");
 // Add new fields if they don't exist in the imported file
 
 if (!session.predictions) session.predictions = [];
-
+if (!session.trendPredictions) session.trendPredictions = [];
 if (!session.lengthPerformance) session.lengthPerformance = {};
 
 if (session.optimalLength === undefined) session.optimalLength = null;
@@ -2059,6 +2208,7 @@ if (!session.lengthPerformance) session.lengthPerformance = {};
 
 if (session.optimalLength === undefined) session.optimalLength = null;
 if (!session.predictions) session.predictions = [];
+if (!session.trendPredictions) session.trendPredictions = [];
 
 
 });
