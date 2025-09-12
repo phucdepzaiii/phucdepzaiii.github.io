@@ -157,6 +157,30 @@ to { opacity: 1; transform: scale(1); }
         box-shadow: 0 0 22px rgba(147, 197, 253, 0.8);
     }
 }
+/* Added style for previous prediction range */
+.previous-prediction-range {
+    animation: pulse-gray 2s infinite;
+}
+@keyframes pulse-gray {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(156, 163, 175, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 22px rgba(156, 163, 175, 0.7);
+    }
+}
+
+/* Session List Item Styles */
+.session-item.active {
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+}
+.session-item.active .text-gray-400 {
+    color: #bfdbfe; /* blue-200 */
+}
+.session-item {
+    transition: background-color 0.2s ease-in-out;
+}
 
 /* Bar Chart for Confidence Stats */
 .bar-chart-container {
@@ -212,39 +236,32 @@ to { opacity: 1; transform: scale(1); }
 
 
 <!-- Session Management -->
-
 <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-blue-300">📁 Quản Lý Phiên</h2>
+        <div class="flex items-center">
+            <input type="checkbox" id="selectAllCheckbox" class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500">
+            <label for="selectAllCheckbox" class="ml-2 text-sm font-medium text-gray-300">Chọn tất cả</label>
+        </div>
+    </div>
 
-<h2 class="text-xl font-semibold mb-4 text-blue-300">📁 Quản Lý Phiên</h2>
+    <div id="sessionListContainer" class="space-y-1 bg-gray-900/50 p-2 rounded-lg max-h-48 overflow-y-auto mb-4 border border-gray-700">
+        <!-- Session list will be dynamically inserted here -->
+    </div>
 
-<div class="flex flex-col sm:flex-row gap-4 mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <button onclick="createNewSession()" class="btn w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg">➕ Mới</button>
+        <button onclick="renameSession()" class="btn w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">✏️ Đổi Tên</button>
+        <button onclick="deleteSelectedSessions()" class="btn w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg">🗑️ Xóa Chọn</button>
+        <button onclick="deleteAllSessions()" class="btn w-full bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg">💥 Xóa Hết</button>
+    </div>
 
-<select id="sessionSelector" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></select>
-
-<div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-
-<button onclick="createNewSession()" class="btn w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg">➕ Mới</button>
-
-<button onclick="renameSession()" class="btn w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">✏️ Đổi Tên</button>
-
-<button onclick="deleteSelectedSession()" class="btn w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg">🗑️ Xóa</button>
-
-</div>
-
-</div>
-
-<!-- Import/Export -->
-
-<div class="flex flex-col sm:flex-row gap-4">
-
-<button onclick="exportData()" class="btn w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-lg">📤 Xuất Dữ Liệu</button>
-
-<button onclick="document.getElementById('fileInput').click()" class="btn w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg">📥 Nhập Dữ Liệu</button>
-
-<input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
-
-</div>
-
+    <!-- Import/Export -->
+    <div class="flex flex-col sm:flex-row gap-4">
+        <button onclick="exportData()" class="btn w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-lg">📤 Xuất Dữ Liệu</button>
+        <button onclick="document.getElementById('fileInput').click()" class="btn w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg">📥 Nhập Dữ Liệu</button>
+        <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
+    </div>
 </div>
 
 
@@ -882,6 +899,9 @@ goldenRange: null
 
 };
 
+// For Shift-Click functionality
+let lastCheckedSessionBox = null;
+
 
 // --- STATS CALCULATION ---
 
@@ -1223,6 +1243,7 @@ const tableDiv = document.getElementById('confidenceStatsTable');
 const recommendationDiv = document.getElementById('confidenceRecommendation');
 
 const currentConfidence = state.currentPrediction?.confidence;
+const previousConfidence = sessionPredictions.length > 0 ? sessionPredictions[sessionPredictions.length - 1].confidence : null;
 
 
 let bestRange = null;
@@ -1355,7 +1376,7 @@ let html = `
 
 `;
 
-if (sessionPredictions.length === 0) {
+if (sessionPredictions.length === 0 && !currentConfidence) {
 
 tableDiv.innerHTML = '<p class="text-gray-500 text-center py-4">Chưa có dữ liệu thống kê cho phiên này.</p>';
 
@@ -1373,6 +1394,13 @@ if (currentConfidence) {
         isCurrentPredictionRange = true;
     }
 }
+let isPreviousPredictionRange = false;
+if (previousConfidence) {
+    if (previousConfidence >= range.min && (previousConfidence < range.max || (range.max === 100 && previousConfidence >= 100))) {
+        isPreviousPredictionRange = true;
+    }
+}
+
 
 // --- Build Bar Chart ---
 let chartHtml = '';
@@ -1389,7 +1417,8 @@ if (range.predictions && range.predictions.length > 0) {
 const rowHighlightClasses = [
     'p-3', 'rounded-lg', 'mt-2', 'transition-all', 'duration-300',
     ...(isBest ? ['bg-blue-800', 'bg-opacity-40', 'border', 'border-blue-500'] : ['bg-gray-700', 'bg-opacity-50']),
-    ...(isCurrentPredictionRange ? ['current-prediction-range'] : [])
+    ...(isCurrentPredictionRange ? ['current-prediction-range'] : []),
+    ...(isPreviousPredictionRange && !isCurrentPredictionRange ? ['previous-prediction-range'] : [])
 ].join(' ');
 
 
@@ -1418,18 +1447,13 @@ tableDiv.innerHTML = html;
 
 
 
-
-
 function updateAllUI() {
-
+updateSessionListUI();
 updateBigRoadUI();
-
 updateAccuracyUI();
-
 updateGlobalAccuracyUI();
 updateAnalysisUI();
 updateConfidenceStatsUI();
-
 }
 
 
@@ -1670,58 +1694,99 @@ localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
 
 }
 
+function updateSessionListUI() {
+    const container = document.getElementById('sessionListContainer');
+    container.innerHTML = '';
+    const sortedKeys = Object.keys(state.sessions).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
+
+    if (sortedKeys.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 p-4">Không có phiên nào.</p>';
+        return;
+    }
+
+    sortedKeys.forEach((sessionId) => {
+        const session = state.sessions[sessionId];
+        const isActive = sessionId === state.currentSessionId;
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `session-item flex items-center justify-between p-2 rounded-md hover:bg-gray-700 cursor-pointer ${isActive ? 'active' : 'bg-gray-800'}`;
+        itemDiv.dataset.sessionId = sessionId;
+
+        itemDiv.innerHTML = `
+            <div class="flex items-center gap-3">
+                <input type="checkbox" onclick="event.stopPropagation()" class="session-checkbox h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 focus:ring-offset-gray-800 shrink-0">
+                <div class="flex flex-col">
+                    <span class="font-semibold text-sm">${session.name}</span>
+                    <span class="text-xs text-gray-400">${session.history.length} ván</span>
+                </div>
+            </div>
+            ${isActive ? `<span class="text-xs font-bold bg-gray-900/50 px-2 py-1 rounded-full">Đang chọn</span>` : ''}
+        `;
+        container.appendChild(itemDiv);
+    });
+    lastCheckedSessionBox = null;
+    document.getElementById('selectAllCheckbox').checked = false;
+}
+
 
 function renameSession() {
-
-if (!state.currentSessionId) return;
-
-const currentName = state.sessions[state.currentSessionId].name;
-
-const newName = prompt("Nhập tên mới cho phiên:", currentName);
-
-if (newName && newName.trim() !== "") {
-
-state.sessions[state.currentSessionId].name = newName.trim();
-
-saveSessions();
-
-updateSessionSelector();
-
+    if (!state.currentSessionId) return;
+    const currentName = state.sessions[state.currentSessionId].name;
+    const newName = prompt("Nhập tên mới cho phiên đang hoạt động:", currentName);
+    if (newName && newName.trim() !== "") {
+        state.sessions[state.currentSessionId].name = newName.trim();
+        saveSessions();
+        updateSessionListUI();
+    }
 }
 
+function deleteSelectedSessions() {
+    const selectedIds = [...document.querySelectorAll('.session-checkbox:checked')]
+        .map(cb => cb.closest('.session-item').dataset.sessionId);
+
+    if (selectedIds.length === 0) {
+        alert('Vui lòng chọn ít nhất một phiên để xóa.');
+        return;
+    }
+
+    const totalSessions = Object.keys(state.sessions).length;
+    if (selectedIds.length >= totalSessions) {
+        alert('Không thể xóa tất cả các phiên. Sử dụng nút "Xóa Hết" hoặc giữ lại ít nhất một phiên.');
+        return;
+    }
+
+    if (confirm(`Bạn có chắc muốn xóa ${selectedIds.length} phiên đã chọn không?`)) {
+        let activeSessionDeleted = false;
+        selectedIds.forEach(id => {
+            if (id === state.currentSessionId) {
+                activeSessionDeleted = true;
+            }
+            delete state.sessions[id];
+        });
+
+        if (activeSessionDeleted) {
+            const remainingKeys = Object.keys(state.sessions).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
+            state.currentSessionId = remainingKeys.length > 0 ? remainingKeys[0] : null;
+        }
+        
+        if (!state.currentSessionId && Object.keys(state.sessions).length === 0) {
+             initializeApp();
+        } else {
+            saveSessions();
+            loadSession(state.currentSessionId);
+        }
+    }
 }
 
-
-
-function updateSessionSelector() {
-
-const selector = document.getElementById('sessionSelector');
-
-selector.innerHTML = '';
-
-const sortedKeys = Object.keys(state.sessions).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
-
-
-sortedKeys.forEach((sessionId) => {
-
-const session = state.sessions[sessionId];
-
-const option = document.createElement('option');
-
-option.value = sessionId;
-
-option.textContent = `${session.name} (${session.history.length} ván)`;
-
-selector.appendChild(option);
-
-});
-
-selector.value = state.currentSessionId;
-
-selector.onchange = () => loadSession(selector.value);
-
+function deleteAllSessions() {
+    if (confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TẤT CẢ CÁC PHIÊN KHÔNG?\n\nHành động này không thể hoàn tác.')) {
+        state.sessions = {};
+        state.currentSessionId = null;
+        localStorage.removeItem('baccaratPatternSessions_v4');
+        localStorage.removeItem('lastActiveSession_v4');
+        initializeApp();
+    }
 }
-
 
 
 function createNewSession() {
@@ -1746,58 +1811,17 @@ optimalLength: null
 
 saveSessions();
 
-updateSessionSelector();
-
 updateAllUI();
 
 }
-
-
-
-function deleteSelectedSession() {
-
-if (!state.currentSessionId || Object.keys(state.sessions).length <= 1) {
-
-alert('Không thể xóa phiên cuối cùng.');
-
-return;
-
-}
-
-if (confirm('Bạn có chắc muốn xóa phiên này không?')) {
-
-delete state.sessions[state.currentSessionId];
-
-state.currentSessionId = null;
-
-localStorage.removeItem('lastActiveSession_v4');
-
-saveSessions();
-
-initializeApp();
-
-}
-
-}
-
-
 
 function loadSession(sessionId) {
-
-if (state.sessions[sessionId]) {
-
-state.currentSessionId = sessionId;
-
-state.currentPrediction = null;
-
-localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
-
-updateSessionSelector();
-
-updateAllUI();
-
-}
-
+    if (state.sessions[sessionId]) {
+        state.currentSessionId = sessionId;
+        state.currentPrediction = null;
+        localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
+        updateAllUI();
+    }
 }
 
 
@@ -1978,6 +2002,41 @@ reader.readAsText(file);
 }
 
 
+function setupEventListeners() {
+    const container = document.getElementById('sessionListContainer');
+    container.addEventListener('click', (e) => {
+        const item = e.target.closest('.session-item');
+        if (!item) return;
+
+        const sessionId = item.dataset.sessionId;
+        const checkbox = item.querySelector('.session-checkbox');
+
+        // Check if the click was on the checkbox itself
+        if (e.target.matches('.session-checkbox')) {
+             if (e.shiftKey && lastCheckedSessionBox) {
+                const allCheckboxes = [...container.querySelectorAll('.session-checkbox')];
+                const start = allCheckboxes.indexOf(lastCheckedSessionBox);
+                const end = allCheckboxes.indexOf(checkbox);
+                const range = allCheckboxes.slice(Math.min(start, end), Math.max(start, end) + 1);
+                range.forEach(box => box.checked = checkbox.checked);
+            }
+            lastCheckedSessionBox = checkbox;
+        } else {
+            // If clicked anywhere else, load the session
+            loadSession(sessionId);
+        }
+    });
+
+    document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.session-checkbox').forEach(box => {
+            if (box.checked !== isChecked) {
+                 box.checked = isChecked;
+            }
+        });
+    });
+}
+
 
 function initializeApp() {
 
@@ -1996,6 +2055,7 @@ if (session.optimalLength === undefined) session.optimalLength = null;
 
 });
 
+setupEventListeners();
 
 
 const lastActiveId = localStorage.getItem('lastActiveSession_v4');
