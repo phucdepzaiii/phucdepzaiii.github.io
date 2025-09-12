@@ -128,34 +128,58 @@ to { opacity: 1; transform: scale(1); }
 
 /* Added styles for highlighting */
 .road-item.previous-hand {
-    border: 3px solid #6B7280; /* gray-500 */
+    border: 3px solid #6B7280; /* gray-500 */
 }
 .road-item.current-hand {
-    border: 3px solid #FBBF24; /* amber-400 */
-    animation: pulse 1.5s infinite, fadeIn 0.5s ease;
+    border: 3px solid #FBBF24; /* amber-400 */
+    animation: pulse 1.5s infinite, fadeIn 0.5s ease;
 }
 
 @keyframes pulse {
-    0%, 100% {
-        box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 20px rgba(250, 204, 21, 0.8);
-    }
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(250, 204, 21, 0.8);
+    }
 }
 
 /* Added style for current prediction range */
 .current-prediction-range {
-    animation: pulse-blue 2s infinite;
+    animation: pulse-blue 2s infinite;
 }
 
 @keyframes pulse-blue {
-    0%, 100% {
-        box-shadow: 0 0 12px rgba(147, 197, 253, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 22px rgba(147, 197, 253, 0.8);
-    }
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(147, 197, 253, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 22px rgba(147, 197, 253, 0.8);
+    }
+}
+
+/* Bar Chart for Confidence Stats */
+.bar-chart-container {
+    display: flex;
+    gap: 2px;
+    height: 24px;
+    align-items: flex-end;
+    overflow: hidden;
+    padding-top: 4px;
+}
+.bar {
+    flex-shrink: 0;
+    width: 5px;
+    border-radius: 1px;
+    transition: all 0.3s ease;
+}
+.bar.win {
+    height: 100%;
+    background-color: #60a5fa; /* blue-400 */
+}
+.bar.loss {
+    height: 40%;
+    background-color: #f87171; /* red-400 */
 }
 
 
@@ -427,7 +451,7 @@ to { opacity: 1; transform: scale(1); }
 
 <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
 
-<h2 class="text-xl font-semibold mb-2 text-green-300">📊 Thống Kê Độ Tin Cậy (Phiên Hiện Tại)</h2>
+<h2 class="text-xl font-semibold mb-2 text-blue-300">📊 Thống Kê Độ Tin Cậy (Phiên Hiện Tại)</h2>
 
 <div id="confidenceRecommendation" class="my-4 p-3 bg-gray-900 rounded-lg text-center"></div>
 
@@ -697,16 +721,16 @@ const rate = perf.total > 0 ? (perf.wins / perf.total * 100).toFixed(1) : 'N/A';
 // --- MODIFICATION START ---
 let confidenceRangeTextOptimal = '';
 if (result.confidence >= 50) {
-    const ranges = [
-        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
-        {min: 80, max: 90}, {min: 90, max: 100}
-    ];
-    for (const range of ranges) {
-        if (result.confidence >= range.min && (result.confidence < range.max || (range.max === 100 && result.confidence >= 100))) {
-            confidenceRangeTextOptimal = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
-            break;
-        }
-    }
+    const ranges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    for (const range of ranges) {
+        if (result.confidence >= range.min && (result.confidence < range.max || (range.max === 100 && result.confidence >= 100))) {
+            confidenceRangeTextOptimal = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
+            break;
+        }
+    }
 }
 const analysisText = `Sử dụng chiều dài cầu tối ưu: ${optimalLength} ván.\n(Tỷ lệ thắng của chiều dài này: ${rate}% - ${perf.wins}/${perf.total})\n\nLịch sử cho thấy:\n- PLAYER: ${result.votes.P.toFixed(1)} điểm\n- BANKER: ${result.votes.B.toFixed(1)} điểm\n\n🏆 Độ tin cậy: ${result.confidence.toFixed(1)}% ${confidenceRangeTextOptimal}`;
 // --- MODIFICATION END ---
@@ -821,16 +845,16 @@ else recommendation = `THEO PHÂN TÍCH LỊCH SỬ`;
 // --- MODIFICATION START ---
 let confidenceRangeTextFallback = '';
 if (maxConfidence >= 50) {
-    const ranges = [
-        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
-        {min: 80, max: 90}, {min: 90, max: 100}
-    ];
-    for (const range of ranges) {
-        if (maxConfidence >= range.min && (maxConfidence < range.max || (range.max === 100 && maxConfidence >= 100))) {
-            confidenceRangeTextFallback = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
-            break;
-        }
-    }
+    const ranges = [
+        {min: 50, max: 60}, {min: 60, max: 70}, {min: 70, max: 80},
+        {min: 80, max: 90}, {min: 90, max: 100}
+    ];
+    for (const range of ranges) {
+        if (maxConfidence >= range.min && (maxConfidence < range.max || (range.max === 100 && maxConfidence >= 100))) {
+            confidenceRangeTextFallback = `(Thuộc khoảng ${range.min}%-${range.max}%)`;
+            break;
+        }
+    }
 }
 const analysisText = `${analysisTextPrefix}\n\n🏆 Độ tin cậy: ${maxConfidence.toFixed(1)}% ${confidenceRangeTextFallback}`;
 // --- MODIFICATION END ---
@@ -862,10 +886,10 @@ goldenRange: null
 // --- STATS CALCULATION ---
 
 function getPredictionStats(predictions) {
-    const total = predictions.length;
-    if (total === 0) return { rate: 0, correct: 0, total: 0 };
-    const correct = predictions.filter(p => p.predicted === p.actual).length;
-    return { rate: (correct / total) * 100, correct, total };
+    const total = predictions.length;
+    if (total === 0) return { rate: 0, correct: 0, total: 0 };
+    const correct = predictions.filter(p => p.predicted === p.actual).length;
+    return { rate: (correct / total) * 100, correct, total };
 }
 
 
@@ -945,9 +969,9 @@ const bgColor = item === 'P' ? 'bg-blue-600' : 'bg-red-600';
 
 let highlightClass = '';
 if (itemCounter === totalLength - 2) {
-    highlightClass = ' previous-hand';
+    highlightClass = ' previous-hand';
 } else if (itemCounter === totalLength - 1) {
-    highlightClass = ' current-hand';
+    highlightClass = ' current-hand';
 }
 
 
@@ -1218,6 +1242,7 @@ return confidence >= range.min && (confidence < range.max || (range.max === 100 
 });
 
 
+range.predictions = predictionsForRange; // Store predictions for the chart
 range.total = predictionsForRange.length;
 
 range.wins = predictionsForRange.filter(p => p.predicted === p.actual).length;
@@ -1259,7 +1284,7 @@ if (streak >= 1) {
 
 if (lastResultIsWin) {
 
-trendIndicator = `<span class="flex items-center text-green-400 ml-1.5">
+trendIndicator = `<span class="flex items-center text-blue-400 ml-1.5">
 
 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"></path></svg>
 
@@ -1304,7 +1329,7 @@ state.goldenRange = bestRange;
 
 if (bestRange) {
 
-recommendationDiv.innerHTML = `<p class="text-sm text-yellow-300"><span class="font-bold">✨ Khoảng Vàng (Phiên):</span> Tỷ lệ thắng cao nhất là <b class="text-green-400">${maxRate.toFixed(1)}%</b> trong khoảng <b class="text-white">${bestRange.min}%-${bestRange.max}%</b>.</p>`;
+recommendationDiv.innerHTML = `<p class="text-sm text-yellow-300"><span class="font-bold">✨ Khoảng Vàng (Phiên):</span> Tỷ lệ thắng cao nhất là <b class="text-blue-400">${maxRate.toFixed(1)}%</b> trong khoảng <b class="text-white">${bestRange.min}%-${bestRange.max}%</b>.</p>`;
 
 } else {
 
@@ -1344,45 +1369,43 @@ const isBest = range === bestRange;
 
 let isCurrentPredictionRange = false;
 if (currentConfidence) {
-    if (currentConfidence >= range.min && (currentConfidence < range.max || (range.max === 100 && currentConfidence >= 100))) {
-        isCurrentPredictionRange = true;
-    }
+    if (currentConfidence >= range.min && (currentConfidence < range.max || (range.max === 100 && currentConfidence >= 100))) {
+        isCurrentPredictionRange = true;
+    }
 }
 
-let classList = [];
-if (isBest) {
-    classList.push('bg-green-800', 'bg-opacity-40', 'border', 'border-green-500');
-} else {
-    classList.push('bg-gray-700', 'bg-opacity-50');
+// --- Build Bar Chart ---
+let chartHtml = '';
+if (range.predictions && range.predictions.length > 0) {
+    chartHtml += '<div class="bar-chart-container mt-2">';
+    range.predictions.forEach(p => {
+        const resultClass = p.predicted === p.actual ? 'win' : 'loss';
+        const title = `Dự đoán: ${p.predicted}, Thực tế: ${p.actual}, Độ tin cậy: ${p.confidence.toFixed(1)}%`;
+        chartHtml += `<div class="bar ${resultClass}" title="${title}"></div>`;
+    });
+    chartHtml += '</div>';
 }
 
-if (isCurrentPredictionRange) {
-    classList.push('current-prediction-range');
-}
-
-const highlightClass = classList.join(' ');
+const rowHighlightClasses = [
+    'p-3', 'rounded-lg', 'mt-2', 'transition-all', 'duration-300',
+    ...(isBest ? ['bg-blue-800', 'bg-opacity-40', 'border', 'border-blue-500'] : ['bg-gray-700', 'bg-opacity-50']),
+    ...(isCurrentPredictionRange ? ['current-prediction-range'] : [])
+].join(' ');
 
 
 html += `
-
-<div class="grid gap-x-2 items-center ${highlightClass} p-3 rounded-lg mt-2 transition-all duration-300 text-sm" style="grid-template-columns: 4fr 2fr 2fr 4fr;">
-
-<span class="font-medium text-gray-300 text-left">${range.min}%-${range.max}%</span>
-
-<span class="text-white font-semibold text-center">${range.total}</span>
-
-<span class="text-green-400 font-semibold text-center">${range.wins}</span>
-
-<span class="font-bold flex items-center justify-end ${rate >= 70 ? 'text-green-400' : (rate >= 50 ? 'text-yellow-400' : 'text-red-400')}">
-
-${rate > -1 ? rate.toFixed(1) + '%' : '-'}
-
-${range.trendIndicator}
-
-</span>
-
+<div class="${rowHighlightClasses}">
+    <div class="grid gap-x-2 items-center text-sm" style="grid-template-columns: 4fr 2fr 2fr 4fr;">
+        <span class="font-medium text-gray-300 text-left">${range.min}%-${range.max}%</span>
+        <span class="text-white font-semibold text-center">${range.total}</span>
+        <span class="text-blue-400 font-semibold text-center">${range.wins}</span>
+        <span class="font-bold flex items-center justify-end ${rate >= 70 ? 'text-blue-400' : (rate >= 50 ? 'text-yellow-400' : 'text-red-400')}">
+            ${rate > -1 ? rate.toFixed(1) + '%' : '-'}
+            ${range.trendIndicator}
+        </span>
+    </div>
+    ${chartHtml}
 </div>
-
 `;
 
 });
@@ -2006,5 +2029,4 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 </body>
 
 </html>
-
 
