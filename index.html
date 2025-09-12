@@ -144,31 +144,35 @@ to { opacity: 1; transform: scale(1); }
     }
 }
 
-/* Added style for current prediction range */
+/* NEW: More prominent highlighting effect */
 .current-prediction-range {
-    animation: pulse-blue 2s infinite;
+    animation: pulse-bg-blue 1.5s infinite;
+    border: 2px solid #60a5fa !important; /* blue-400 */
 }
 
-@keyframes pulse-blue {
-    0%, 100% {
-        box-shadow: 0 0 12px rgba(147, 197, 253, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 22px rgba(147, 197, 253, 0.8);
-    }
+@keyframes pulse-bg-blue {
+    0%, 100% {
+        background-color: rgba(59, 130, 246, 0.3); /* blue-500 with opacity */
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.6); /* brighter blue-500 */
+    }
 }
-/* Added style for previous prediction range */
+
 .previous-prediction-range {
-    animation: pulse-gray 2s infinite;
+    animation: pulse-bg-gray 1.5s infinite;
+    border: 2px solid #9ca3af !important; /* gray-400 */
 }
-@keyframes pulse-gray {
-    0%, 100% {
-        box-shadow: 0 0 12px rgba(156, 163, 175, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 22px rgba(156, 163, 175, 0.7);
-    }
+
+@keyframes pulse-bg-gray {
+    0%, 100% {
+        background-color: rgba(107, 114, 128, 0.3); /* gray-500 with opacity */
+    }
+    50% {
+        background-color: rgba(107, 114, 128, 0.6); /* brighter gray-500 */
+    }
 }
+
 
 /* Session List Item Styles */
 .session-item.active {
@@ -1414,11 +1418,13 @@ if (range.predictions && range.predictions.length > 0) {
     chartHtml += '</div>';
 }
 
+// CORRECTED LOGIC: Prioritize current, but allow previous if not overlapping.
 const rowHighlightClasses = [
     'p-3', 'rounded-lg', 'mt-2', 'transition-all', 'duration-300',
     ...(isBest ? ['bg-blue-800', 'bg-opacity-40', 'border', 'border-blue-500'] : ['bg-gray-700', 'bg-opacity-50']),
-    ...(isCurrentPredictionRange ? ['current-prediction-range'] : []),
-    ...(isPreviousPredictionRange && !isCurrentPredictionRange ? ['previous-prediction-range'] : [])
+    ...(isCurrentPredictionRange ? ['current-prediction-range'] : 
+        (isPreviousPredictionRange ? ['previous-prediction-range'] : [])
+    )
 ].join(' ');
 
 
@@ -1678,7 +1684,7 @@ function getSessions() {
 
 try {
 
-return JSON.parse(localStorage.getItem('baccaratPatternSessions_v4')) || {};
+return JSON.parse(localStorage.getItem('baccaratPatternSessions_v5')) || {};
 
 } catch (e) { return {}; }
 
@@ -1688,9 +1694,9 @@ return JSON.parse(localStorage.getItem('baccaratPatternSessions_v4')) || {};
 
 function saveSessions() {
 
-localStorage.setItem('baccaratPatternSessions_v4', JSON.stringify(state.sessions));
+localStorage.setItem('baccaratPatternSessions_v5', JSON.stringify(state.sessions));
 
-localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
+localStorage.setItem('lastActiveSession_v5', state.currentSessionId);
 
 }
 
@@ -1782,8 +1788,8 @@ function deleteAllSessions() {
     if (confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TẤT CẢ CÁC PHIÊN KHÔNG?\n\nHành động này không thể hoàn tác.')) {
         state.sessions = {};
         state.currentSessionId = null;
-        localStorage.removeItem('baccaratPatternSessions_v4');
-        localStorage.removeItem('lastActiveSession_v4');
+        localStorage.removeItem('baccaratPatternSessions_v5');
+        localStorage.removeItem('lastActiveSession_v5');
         initializeApp();
     }
 }
@@ -1819,7 +1825,7 @@ function loadSession(sessionId) {
     if (state.sessions[sessionId]) {
         state.currentSessionId = sessionId;
         state.currentPrediction = null;
-        localStorage.setItem('lastActiveSession_v4', state.currentSessionId);
+        localStorage.setItem('lastActiveSession_v5', state.currentSessionId);
         updateAllUI();
     }
 }
@@ -1973,7 +1979,7 @@ state.sessions = importedSessions;
 
 state.currentSessionId = null;
 
-localStorage.removeItem('lastActiveSession_v4');
+localStorage.removeItem('lastActiveSession_v5');
 
 saveSessions();
 
@@ -2052,13 +2058,15 @@ Object.values(state.sessions).forEach(session => {
 if (!session.lengthPerformance) session.lengthPerformance = {};
 
 if (session.optimalLength === undefined) session.optimalLength = null;
+if (!session.predictions) session.predictions = [];
+
 
 });
 
 setupEventListeners();
 
 
-const lastActiveId = localStorage.getItem('lastActiveSession_v4');
+const lastActiveId = localStorage.getItem('lastActiveSession_v5');
 
 
 
