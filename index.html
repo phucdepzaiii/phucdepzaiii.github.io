@@ -150,7 +150,7 @@
         <!-- Header -->
         <div class="bg-gray-800 p-6 rounded-2xl shadow-lg text-center">
             <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-400">Hệ Thống Phân Tích Cầu Chuyên Nghiệp</h1>
-            <p class="text-gray-400 mt-2">Logic Bất Đối Xứng (Hoàn Toàn & So Le)</p>
+            <p class="text-gray-400 mt-2">Logic Bất Đối Xứng Hoàn Toàn</p>
         </div>
 
         <!-- Session Management -->
@@ -303,7 +303,7 @@ class AsymmetryAnalyzer {
 
         // --- HIERARCHICAL ANALYSIS ---
 
-        // PRIORITY 1 & 2: Find "Complete Asymmetry" and fallback to "Alternating"
+        // PRIORITY 1: Find "Complete Asymmetry"
         if (columns.length >= 3) {
             for (let i = columns.length - 2; i >= 1; i--) {
                 const asymColCandidate = columns[i];
@@ -314,7 +314,7 @@ class AsymmetryAnalyzer {
                     const targetCol = columns[i + 1];
                     const currentTargetLength = targetCol.length;
                     
-                    // PRIORITY 1: Complete Asymmetry (Reference column is long enough)
+                    // Check for Complete Asymmetry (Reference column must be long enough)
                     if (refCol.length > currentTargetLength) {
                         let mismatchFound = false;
                         for(let j = 0; j < currentTargetLength; j++) {
@@ -343,22 +343,13 @@ class AsymmetryAnalyzer {
                             highlightIndices: { ref: i - 1, asym: i, target: i + 1 }
                         };
                     } 
-                    // PRIORITY 2: Alternating Asymmetry (Reference column is exhausted)
-                    else {
-                         const prediction = opposite(targetCol[0]);
-                         return {
-                            prediction: prediction,
-                            recommendation: "BẺ CẦU (BĐX SO LE)",
-                            logicType: 'alternating',
-                            analysisText: `Cột tham chiếu (cột ${i}) đã hết.\nKích hoạt logic BĐX So Le: bẻ cầu hiện tại.`,
-                            highlightIndices: { ref: i - 1, asym: i, target: i + 1 }
-                        };
-                    }
+                    // If refCol.length is not > currentTargetLength, we skip and continue the loop
+                    // The "Alternating Asymmetry" logic has been removed.
                 }
             }
         }
 
-        // PRIORITY 3: Default Symmetrical (No asymmetry found)
+        // PRIORITY 2: Default Symmetrical (No valid asymmetry found)
         const lastCol = columns[columns.length - 2];
         const targetCol = columns[columns.length - 1];
         const currentTargetLength = targetCol.length;
@@ -504,7 +495,6 @@ function updateMethodStatsUI() {
 
     const stats = {
         complete: { name: 'BĐX Hoàn Toàn', predictions: [] },
-        alternating: { name: 'BĐX So Le', predictions: [] },
         default: { name: 'Đối Xứng Mặc Định', predictions: [] }
     };
 
@@ -545,9 +535,9 @@ function updateMethodStatsUI() {
         let chartHtml = '<div class="bar-chart-container mt-2">';
         if (method.predictions.length > 0) {
              method.predictions.forEach(p => {
-                const resultClass = p.predicted === p.actual ? 'win' : 'loss';
-                const title = `Dự đoán: ${p.predicted}, Thực tế: ${p.actual}`;
-                chartHtml += `<div class="bar ${resultClass}" title="${title}"></div>`;
+                 const resultClass = p.predicted === p.actual ? 'win' : 'loss';
+                 const title = `Dự đoán: ${p.predicted}, Thực tế: ${p.actual}`;
+                 chartHtml += `<div class="bar ${resultClass}" title="${title}"></div>`;
             });
         } else {
             chartHtml += '<div class="w-full text-center text-xs text-gray-600">Chưa có dữ liệu</div>';
@@ -797,6 +787,3 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 </script>
 </body>
 </html>
-
-
-
