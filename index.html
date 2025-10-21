@@ -1442,74 +1442,86 @@ function exportAndAnalyzeMatrix() {
 }
 
 function exportAndAnalyzeAllSessionsMatrix() {
-    if (Object.keys(state.sessions).length === 0) {
+    const sortedSessionIds = Object.keys(state.sessions).sort((a, b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]));
+
+    if (sortedSessionIds.length === 0) {
         showToast('Không có dữ liệu để phân tích.', 'warning');
         return;
     }
-    
-    const currentSession = state.sessions[state.currentSessionId];
-    if (!currentSession) {
-        showToast('Không tìm thấy phiên hiện tại để lấy cài đặt cột.', 'error');
-        return;
-    }
-    const columns = currentSession.simulation.displayColumns;
-
-    const allLogs = Object.values(state.sessions).flatMap(s => s.simulation.log || []);
-
-    if (allLogs.length === 0) {
-        showToast('Không có dữ liệu chuỗi cược trong tất cả các phiên để phân tích.', 'warning');
-        return;
-    }
-
-    const analysisResult = analyzeBetMatrix(allLogs, columns);
 
     let markdownContent = `# Phân Tích Ma Trận Chuỗi Cược (TỔNG HỢP TẤT CẢ CÁC PHIÊN)\n\n`;
     markdownContent += `*Dữ liệu được tổng hợp từ ${Object.keys(state.sessions).length} phiên.*\n`;
-    markdownContent += `*Ma trận được hiển thị với ${columns} cột (theo cài đặt của phiên hiện tại).*\n`;
-    markdownContent += `*Ngày xuất: ${new Date().toLocaleString('vi-VN')}*\n\n`;
-    
-    markdownContent += '## Ma Trận Cược (Tổng Hợp)\n\n';
-    let tableHeader = '|';
-    let tableSeparator = '|';
-    for (let i = 1; i <= columns; i++) {
-        tableHeader += ` Cột ${i} |`;
-        tableSeparator += ' :---: |';
-    }
-    markdownContent += `${tableHeader}\n`;
-    markdownContent += `${tableSeparator}\n`;
+    markdownContent += `*Ngày xuất: ${new Date().toLocaleString('vi-VN')}*\n\n---\n\n`;
 
-    const numRows = Math.ceil(allLogs.length / columns);
-    for (let i = 0; i < numRows; i++) {
-        let tableRow = '|';
-        for (let j = 0; j < columns; j++) {
-            const index = i * columns + j;
-            if (index < allLogs.length) {
-                const entry = allLogs[index];
-                const value = entry.substring(1);
-                const symbol = entry.startsWith('+') ? `+${parseInt(value).toLocaleString()}` : `-${parseInt(value).toLocaleString()}`;
-                tableRow += ` ${symbol} |`;
-            } else {
-                tableRow += ' |';
-            }
+    let hasData = false;
+
+    sortedSessionIds.forEach(sessionId => {
+        const session = state.sessions[sessionId];
+        const log = session.simulation.log || [];
+        const columns = session.simulation.displayColumns || 6;
+
+        if (log.length === 0) {
+            return; // Bỏ qua các phiên không có dữ liệu cược
         }
-        markdownContent += `${tableRow}\n`;
-    }
 
-    markdownContent += '\n## Kết Quả Phân Tích (Tổng Hợp)\n\n';
-    markdownContent += analysisResult;
+        hasData = true;
+
+        markdownContent += `## 📊 Phiên: ${session.name}\n\n`;
+        markdownContent += `*Cài đặt: ${columns} cột, Mức cược cơ bản: ${session.simulation.baseBet}, Cắt lỗ: ${session.simulation.stopLossLevel} lần.*\n\n`;
+
+        const analysisResult = analyzeBetMatrix(log, columns);
+
+        markdownContent += '### Ma Trận Cược (Phiên Này)\n\n';
+        let tableHeader = '|';
+        let tableSeparator = '|';
+        for (let i = 1; i <= columns; i++) {
+            tableHeader += ` Cột ${i} |`;
+            tableSeparator += ' :---: |';
+        }
+        markdownContent += `${tableHeader}\n`;
+        markdownContent += `${tableSeparator}\n`;
+
+        const numRows = Math.ceil(log.length / columns);
+        for (let i = 0; i < numRows; i++) {
+            let tableRow = '|';
+            for (let j = 0; j < columns; j++) {
+                const index = i * columns + j;
+                if (index < log.length) {
+                    const entry = log[index];
+                    const value = entry.substring(1);
+                    const symbol = entry.startsWith('+') ? `+${parseInt(value).toLocaleString()}` : `-${parseInt(value).toLocaleString()}`;
+                    tableRow += ` ${symbol} |`;
+                } else {
+                    tableRow += ' |';
+                }
+            }
+            markdownContent += `${tableRow}\n`;
+        }
+
+        markdownContent += '\n### Kết Quả Phân Tích (Phiên Này)\n\n';
+        markdownContent += analysisResult;
+        markdownContent += '---\n\n';
+    });
+
+
+    if (!hasData) {
+        showToast('Không có dữ liệu chuỗi cược trong tất cả các phiên để phân tích.', 'warning');
+        return;
+    }
 
     const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    a.download = `PhanTichMaTranTongHop_${timestamp}.md`;
+    a.download = `PhanTichTongHopCacPhien_${timestamp}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('Đã xuất và phân tích ma trận tổng hợp!', 'success');
+    showToast('Đã xuất và phân tích tổng hợp các phiên!', 'success');
 }
+
 
 function runSimulation(importedSessions) {
     state.sessions = {};
@@ -1726,18 +1738,6 @@ function initializeApp() {
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', initializeApp);
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
