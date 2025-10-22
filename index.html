@@ -234,7 +234,7 @@
             </div>
         </div>
 
-        <!-- BỔ SUNG: SIMULATION PANEL TỪ HỆ THỐNG 2 -->
+        <!-- SIMULATION PANEL -->
         <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
             <h2 class="text-xl font-semibold mb-4 text-orange-300">💰 Mô Phỏng Cược</h2>
             <div class="space-y-4">
@@ -246,11 +246,12 @@
                     <label for="stopLossLevel" class="block text-sm font-medium text-gray-300 mb-1">Ngưỡng cắt lỗ (số lần thua)</label>
                     <input type="number" id="stopLossLevel" value="4" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-orange-500 focus:outline-none">
                 </div>
+                 <!-- SỬA LỖI: Thêm lại input bị thiếu -->
                 <div>
                     <label for="displayColumns" class="block text-sm font-medium text-gray-300 mb-1">Số cột hiển thị</label>
                     <input type="number" id="displayColumns" value="6" min="2" max="9" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-orange-500 focus:outline-none">
                 </div>
-                <div>
+                 <div>
                      <label class="block text-sm font-medium text-gray-300 mb-1">Chế độ cược</label>
                      <div class="flex gap-4">
                          <div class="flex-1">
@@ -262,11 +263,6 @@
                              <label for="simModeAgainst" class="block w-full text-center py-2 px-3 rounded-lg bg-gray-700 border-2 border-gray-600 cursor-pointer peer-checked:border-red-500 peer-checked:bg-red-900 peer-checked:text-red-300">Ngược</label>
                          </div>
                      </div>
-                </div>
-                <button id="toggleSimBtn" onclick="toggleSimulation()" class="btn w-full font-bold py-3 px-4 rounded-lg bg-green-600 hover:bg-green-500">Bắt đầu Mô phỏng</button>
-                <div class="grid grid-cols-2 gap-4 mt-2">
-                    <button onclick="exportAndAnalyzeMatrix()" class="btn w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg text-sm">📄 Phân Tích Phiên Này</button>
-                    <button onclick="exportAndAnalyzeAllSessionsMatrix()" class="btn w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-sm">🌍 Phân Tích Tổng Hợp</button>
                 </div>
                  <div class="mt-4 bg-gray-900 p-4 rounded-lg space-y-3">
                      <div class="flex justify-between items-center text-sm">
@@ -801,8 +797,11 @@ function updateConfidenceStatsUI() {
             }
 
             let indicatorsHTML = '';
-            if (currentConfidence && currentConfidence >= range.min && (currentConfidence < range.max || (range.max === 100 && currentConfidence >= 100))) {
-                indicatorsHTML += `<span class="ml-2 px-1.5 py-0.5 text-xs rounded font-semibold bg-blue-600 text-white" title="Phán đoán hiện tại">Hiện tại</span>`;
+            if (currentConfidence && state.currentFinalPrediction?.prediction && currentConfidence >= range.min && (currentConfidence < range.max || (range.max === 100 && currentConfidence >= 100))) {
+                const finalPrediction = state.currentFinalPrediction.prediction;
+                const sideText = finalPrediction === 'P' ? 'PLAYER' : 'BANKER';
+                const sideColor = finalPrediction === 'P' ? 'bg-blue-600' : 'bg-red-600';
+                indicatorsHTML += `<span class="ml-2 px-1.5 py-0.5 text-xs rounded font-semibold ${sideColor} text-white" title="Đề xuất ván hiện tại">${sideText}</span>`;
             }
             if (previousConfidence && previousConfidence >= range.min && (previousConfidence < range.max || (previousConfidence >= 100 && range.max === 100))) {
                 const marginLeft = indicatorsHTML ? 'ml-1' : 'ml-2';
@@ -918,7 +917,7 @@ function updateSimulationUI() {
     profitLossEl.className = `font-bold text-lg ${sim.profitLoss > 0 ? 'text-green-400' : sim.profitLoss < 0 ? 'text-red-400' : 'text-white'}`;
     
     const simNextBetEl = document.getElementById('simNextBet');
-    if (sim.isActive && state.currentFinalPrediction?.prediction) {
+    if (state.currentFinalPrediction?.prediction) {
         let betOn = state.currentFinalPrediction.prediction;
         if (sim.mode === 'against') {
             betOn = betOn === 'P' ? 'B' : 'P';
@@ -927,14 +926,15 @@ function updateSimulationUI() {
         const betSideColor = betOn === 'P' ? 'text-blue-400' : 'text-red-400';
         simNextBetEl.innerHTML = `${sim.currentBet.toLocaleString()} <span class="font-semibold ${betSideColor}">(${betSideText})</span>`;
     } else {
-        simNextBetEl.textContent = sim.isActive ? sim.currentBet.toLocaleString() : '0';
+        simNextBetEl.textContent = sim.currentBet.toLocaleString();
     }
 
 
     const logEl = document.getElementById('simLog');
-    logEl.style.gridTemplateColumns = `repeat(${sim.displayColumns}, 1fr)`;
+    const displayColumns = parseInt(document.getElementById('displayColumns').value) || 6;
+    logEl.style.gridTemplateColumns = `repeat(${displayColumns}, 1fr)`;
     if (sim.log.length === 0) {
-        logEl.innerHTML = `<p class="text-gray-500 text-xs col-span-6 text-center" style="grid-column: span ${sim.displayColumns}">Chưa có...</p>`;
+        logEl.innerHTML = `<p class="text-gray-500 text-xs col-span-6 text-center" style="grid-column: span ${displayColumns}">Chưa có...</p>`;
     } else {
         logEl.innerHTML = sim.log.map(entry => {
             const isWin = entry.startsWith('+');
@@ -945,14 +945,6 @@ function updateSimulationUI() {
     }
 
     logEl.scrollTop = logEl.scrollHeight;
-
-    const toggleBtn = document.getElementById('toggleSimBtn');
-    
-    toggleBtn.textContent = sim.isActive ? 'Dừng Mô phỏng' : 'Bắt đầu Mô phỏng';
-    toggleBtn.classList.toggle('bg-green-600', !sim.isActive);
-    toggleBtn.classList.toggle('hover:bg-green-500', !sim.isActive);
-    toggleBtn.classList.toggle('bg-yellow-600', sim.isActive);
-    toggleBtn.classList.toggle('hover:bg-yellow-500', sim.isActive);
 }
 
 
@@ -977,29 +969,6 @@ function toggleSessionManagement() {
         content.style.maxHeight = content.scrollHeight + 'px';
         icon.style.transform = 'rotate(0deg)';
     }
-}
-
-function toggleSimulation() {
-    if (!state.currentSessionId) return;
-    const session = state.sessions[state.currentSessionId];
-    const sim = session.simulation;
-
-    if (sim.isActive) {
-        sim.isActive = false;
-    } else {
-        // Validate before starting
-        if (!updateSimSetting('baseBet', document.getElementById('baseBet').value, true) ||
-            !updateSimSetting('stopLossLevel', document.getElementById('stopLossLevel').value, true) ||
-            !updateSimSetting('displayColumns', document.getElementById('displayColumns').value, true)) {
-            return; 
-        }
-        sim.mode = document.querySelector('input[name="simMode"]:checked').value;
-        sim.currentBet = sim.baseBet;
-        sim.consecutiveLosses = 0;
-        sim.isActive = true;
-    }
-    saveSessions();
-    updateSimulationUI();
 }
 
 function updateSimSetting(key, value, silent = false) {
@@ -1036,7 +1005,7 @@ function updateSimSetting(key, value, silent = false) {
 
     if (isValid) {
         session.simulation[key] = validatedValue;
-        if (key === 'baseBet' && session.simulation.consecutiveLosses === 0 && session.simulation.isActive) {
+        if (key === 'baseBet' && session.simulation.consecutiveLosses === 0) {
             session.simulation.currentBet = session.simulation.baseBet;
         }
         saveSessions();
@@ -1053,7 +1022,7 @@ function addResult(result) {
     if (!state.currentSessionId) return;
     const session = state.sessions[state.currentSessionId];
     
-    if(session.simulation.isActive && state.currentFinalPrediction?.prediction) {
+    if(state.currentFinalPrediction?.prediction) {
         const sim = session.simulation;
         let betOn = state.currentFinalPrediction.prediction;
         if (sim.mode === 'against') {
@@ -1233,8 +1202,8 @@ function clearCurrentSessionHistory() {
 }
 
 // --- SESSION MANAGEMENT ---
-function getSessions() { try { return JSON.parse(localStorage.getItem('baccaratPatternSessions_v10_sim')) || {}; } catch (e) { return {}; }}
-function saveSessions() { localStorage.setItem('baccaratPatternSessions_v10_sim', JSON.stringify(state.sessions)); localStorage.setItem('lastActiveSession_v10_sim', state.currentSessionId); }
+function getSessions() { try { return JSON.parse(localStorage.getItem('baccaratPatternSessions_v11_sim')) || {}; } catch (e) { return {}; }}
+function saveSessions() { localStorage.setItem('baccaratPatternSessions_v11_sim', JSON.stringify(state.sessions)); localStorage.setItem('lastActiveSession_v11_sim', state.currentSessionId); }
 function renameSession() {
     if (!state.currentSessionId) return;
     const currentName = state.sessions[state.currentSessionId].name;
@@ -1269,7 +1238,7 @@ function createNewSession() {
     const newId = `session-${Date.now()}`;
     state.currentSessionId = newId;
     const defaultSimulation = {
-        isActive: false, mode: 'follow', baseBet: 10,
+        isActive: true, mode: 'follow', baseBet: 10,
         currentBet: 10, profitLoss: 0, log: [],
         stopLossLevel: 4, consecutiveLosses: 0, displayColumns: 6
     };
@@ -1308,7 +1277,7 @@ function deleteSelectedSessions() {
 
         if (wasCurrentSessionDeleted) {
             state.currentSessionId = null;
-            localStorage.removeItem('lastActiveSession_v10_sim');
+            localStorage.removeItem('lastActiveSession_v11_sim');
         }
         
         saveSessions();
@@ -1321,8 +1290,8 @@ function deleteAllSessions() {
      showCustomConfirm('BẠN CÓ CHẮC MUỐN XÓA TẤT CẢ CÁC PHIÊN KHÔNG? Hành động này không thể hoàn tác.', () => {
         state.sessions = {};
         state.currentSessionId = null;
-        localStorage.removeItem('baccaratPatternSessions_v10_sim');
-        localStorage.removeItem('lastActiveSession_v10_sim');
+        localStorage.removeItem('baccaratPatternSessions_v11_sim');
+        localStorage.removeItem('lastActiveSession_v11_sim');
         initializeApp();
         showToast('Tất cả các phiên đã được xóa.', 'success');
     });
@@ -1332,197 +1301,13 @@ function loadSession(sessionId) {
     if (state.sessions[sessionId] && sessionId !== state.currentSessionId) {
         state.currentSessionId = sessionId;
         state.currentPrediction = null;
-        localStorage.setItem('lastActiveSession_v10_sim', state.currentSessionId);
+        localStorage.setItem('lastActiveSession_v11_sim', state.currentSessionId);
         updateSessionSelector();
         updateAllUI();
     }
 }
 
 // --- IMPORT / EXPORT & RECALCULATION ---
-// THÊM MỚI: Các hàm phân tích và xuất ma trận
-function analyzeBetMatrix(log, columns) {
-    const columnStats = {};
-    for (let i = 0; i < columns; i++) {
-        columnStats[i] = { wins: 0, losses: 0, total: 0 };
-    }
-
-    log.forEach((entry, index) => {
-        const columnIndex = index % columns;
-        columnStats[columnIndex].total++;
-        if (entry.startsWith('+')) {
-            columnStats[columnIndex].wins++;
-        } else {
-            columnStats[columnIndex].losses++;
-        }
-    });
-
-    let analysisText = '';
-    for (let i = 0; i < columns; i++) {
-        const stats = columnStats[i];
-        if (stats.total === 0) continue;
-
-        const winRate = (stats.wins / stats.total) * 100;
-        analysisText += `### Cột ${i + 1}\n`;
-        analysisText += `- **Thống kê:** Thắng ${stats.wins} / Thua ${stats.losses} (Tổng: ${stats.total})\n`;
-        analysisText += `- **Tỷ lệ thắng:** ${winRate.toFixed(1)}%\n`;
-
-        let rule = 'Không có quy luật rõ ràng.';
-        if (winRate >= 95) {
-            rule = '**Quy luật đề xuất: Cột này rất đáng tin cậy để ĐÁNH THEO (tỷ lệ thắng rất cao).**';
-        } else if (winRate <= 5) {
-            rule = '**Quy luật đề xuất: Cột này rất đáng tin cậy để ĐÁNH NGƯỢC LẠI (tỷ lệ thua rất cao).**';
-        } else if (winRate >= 80) {
-            rule = 'Quy luật đề xuất: Cân nhắc đánh theo cột này (tỷ lệ thắng cao).';
-        } else if (winRate <= 20) {
-            rule = 'Quy luật đề xuất: Cân nhắc đánh ngược lại cột này (tỷ lệ thua cao).';
-        }
-        analysisText += `- **Phân tích:** ${rule}\n\n`;
-    }
-    return analysisText;
-}
-
-function exportAndAnalyzeMatrix() {
-    if (!state.currentSessionId) return;
-    const session = state.sessions[state.currentSessionId];
-    const log = session.simulation.log;
-    const columns = session.simulation.displayColumns;
-
-    if (log.length === 0) {
-        showToast('Không có dữ liệu chuỗi cược để phân tích.', 'warning');
-        return;
-    }
-
-    const analysisResult = analyzeBetMatrix(log, columns);
-
-    let markdownContent = `# Phân Tích Ma Trận Chuỗi Cược\n\n`;
-    markdownContent += `*Phiên: ${session.name}*\n`;
-    markdownContent += `*Ngày xuất: ${new Date().toLocaleString('vi-VN')}*\n\n`;
-
-    markdownContent += '## Ma Trận Cược\n\n';
-    let tableHeader = '|';
-    let tableSeparator = '|';
-    for (let i = 1; i <= columns; i++) {
-        tableHeader += ` Cột ${i} |`;
-        tableSeparator += ' :---: |';
-    }
-    markdownContent += `${tableHeader}\n`;
-    markdownContent += `${tableSeparator}\n`;
-
-    const numRows = Math.ceil(log.length / columns);
-    for (let i = 0; i < numRows; i++) {
-        let tableRow = '|';
-        for (let j = 0; j < columns; j++) {
-            const index = i * columns + j;
-            if (index < log.length) {
-                const entry = log[index];
-                const value = entry.substring(1);
-                const symbol = entry.startsWith('+') ? `+${parseInt(value).toLocaleString()}` : `-${parseInt(value).toLocaleString()}`;
-                tableRow += ` ${symbol} |`;
-            } else {
-                tableRow += ' |';
-            }
-        }
-        markdownContent += `${tableRow}\n`;
-    }
-
-    markdownContent += '\n## Kết Quả Phân Tích\n\n';
-    markdownContent += analysisResult;
-
-    const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    a.download = `PhanTichMaTranCuoc_${timestamp}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Đã xuất và phân tích ma trận cược!', 'success');
-}
-
-function exportAndAnalyzeAllSessionsMatrix() {
-    const sortedSessionIds = Object.keys(state.sessions).sort((a, b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]));
-
-    if (sortedSessionIds.length === 0) {
-        showToast('Không có dữ liệu để phân tích.', 'warning');
-        return;
-    }
-
-    let markdownContent = `# Phân Tích Ma Trận Chuỗi Cược (TỔNG HỢP TẤT CẢ CÁC PHIÊN)\n\n`;
-    markdownContent += `*Dữ liệu được tổng hợp từ ${Object.keys(state.sessions).length} phiên.*\n`;
-    markdownContent += `*Ngày xuất: ${new Date().toLocaleString('vi-VN')}*\n\n---\n\n`;
-
-    let hasData = false;
-
-    sortedSessionIds.forEach(sessionId => {
-        const session = state.sessions[sessionId];
-        const log = session.simulation.log || [];
-        const columns = session.simulation.displayColumns || 6;
-
-        if (log.length === 0) {
-            return; // Bỏ qua các phiên không có dữ liệu cược
-        }
-
-        hasData = true;
-
-        markdownContent += `## 📊 Phiên: ${session.name}\n\n`;
-        markdownContent += `*Cài đặt: ${columns} cột, Mức cược cơ bản: ${session.simulation.baseBet}, Cắt lỗ: ${session.simulation.stopLossLevel} lần.*\n\n`;
-
-        const analysisResult = analyzeBetMatrix(log, columns);
-
-        markdownContent += '### Ma Trận Cược (Phiên Này)\n\n';
-        let tableHeader = '|';
-        let tableSeparator = '|';
-        for (let i = 1; i <= columns; i++) {
-            tableHeader += ` Cột ${i} |`;
-            tableSeparator += ' :---: |';
-        }
-        markdownContent += `${tableHeader}\n`;
-        markdownContent += `${tableSeparator}\n`;
-
-        const numRows = Math.ceil(log.length / columns);
-        for (let i = 0; i < numRows; i++) {
-            let tableRow = '|';
-            for (let j = 0; j < columns; j++) {
-                const index = i * columns + j;
-                if (index < log.length) {
-                    const entry = log[index];
-                    const value = entry.substring(1);
-                    const symbol = entry.startsWith('+') ? `+${parseInt(value).toLocaleString()}` : `-${parseInt(value).toLocaleString()}`;
-                    tableRow += ` ${symbol} |`;
-                } else {
-                    tableRow += ' |';
-                }
-            }
-            markdownContent += `${tableRow}\n`;
-        }
-
-        markdownContent += '\n### Kết Quả Phân Tích (Phiên Này)\n\n';
-        markdownContent += analysisResult;
-        markdownContent += '---\n\n';
-    });
-
-
-    if (!hasData) {
-        showToast('Không có dữ liệu chuỗi cược trong tất cả các phiên để phân tích.', 'warning');
-        return;
-    }
-
-    const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    a.download = `PhanTichTongHopCacPhien_${timestamp}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Đã xuất và phân tích tổng hợp các phiên!', 'success');
-}
-
-
 function runSimulation(importedSessions) {
     state.sessions = {};
     state.currentSessionId = null;
@@ -1534,7 +1319,7 @@ function runSimulation(importedSessions) {
         
         state.currentSessionId = sessionId;
         const defaultSimulation = {
-            isActive: false, mode: 'follow', baseBet: 10,
+            isActive: true, mode: 'follow', baseBet: 10,
             currentBet: 10, profitLoss: 0, log: [],
             stopLossLevel: 4, consecutiveLosses: 0, displayColumns: 6
         };
@@ -1549,16 +1334,14 @@ function runSimulation(importedSessions) {
         if (importedSession.simulation) {
             state.sessions[sessionId].simulation.baseBet = importedSession.simulation.baseBet || 10;
             state.sessions[sessionId].simulation.stopLossLevel = importedSession.simulation.stopLossLevel || 4;
-            state.sessions[sessionId].simulation.displayColumns = importedSession.simulation.displayColumns || 6;
+            // Bỏ qua displayColumns khi import để dùng giá trị mặc định/hiện tại
             state.sessions[sessionId].simulation.mode = importedSession.simulation.mode || 'follow';
         }
-        state.sessions[sessionId].simulation.isActive = true;
-
+        
         importedSession.history.forEach(result => {
             addResult(result); 
         });
 
-        state.sessions[sessionId].simulation.isActive = false;
     });
 
     if (sortedSessionIds.length > 0) {
@@ -1694,7 +1477,7 @@ function initializeApp() {
     state.sessions = getSessions();
     
     const defaultSimulation = {
-        isActive: false, mode: 'follow', baseBet: 10,
+        isActive: true, mode: 'follow', baseBet: 10,
         currentBet: 10, profitLoss: 0, log: [],
         stopLossLevel: 4,
         consecutiveLosses: 0,
@@ -1707,9 +1490,10 @@ function initializeApp() {
         if (!s.verdictPredictions) s.verdictPredictions = []; 
         
         s.simulation = { ...JSON.parse(JSON.stringify(defaultSimulation)), ...s.simulation };
+        s.simulation.isActive = true; // Force simulation on for all sessions
     });
 
-    const lastActiveId = localStorage.getItem('lastActiveSession_v10_sim');
+    const lastActiveId = localStorage.getItem('lastActiveSession_v11_sim');
     if (Object.keys(state.sessions).length === 0) {
         createNewSession();
     } else {
@@ -1858,7 +1642,42 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 </script>
 </body>
 </html>
-
